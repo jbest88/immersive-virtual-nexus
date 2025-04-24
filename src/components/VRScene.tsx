@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls, Plane } from '@react-three/drei';
 import * as THREE from 'three';
@@ -59,9 +59,16 @@ const VRScene: React.FC<VRSceneProps> = ({
   environmentBrightness = 0.7,
   enablePerformanceMonitor = false,
 }) => {
-  const [screens] = useState([
-    { id: 1, position: [-5, 1, -5] as [number, number, number], width: 16, height: 9, name: "Main Display" },
-    { id: 2, position: [5, 1, -5] as [number, number, number], width: 10, height: 8, name: "Secondary Monitor" },
+  // Explicitly type the screens array to ensure proper position typing
+  const [screens] = useState<Array<{
+    id: number;
+    position: [number, number, number];
+    width: number;
+    height: number;
+    name: string;
+  }>>([
+    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display" },
+    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Secondary Monitor" },
   ]);
   
   return (

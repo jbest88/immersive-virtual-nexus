@@ -37,18 +37,21 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     }
   }, [image]);
   
+  // Safely update material opacity based on state
   useFrame(() => {
     if (meshRef.current && meshRef.current.material) {
-      // Access material safely to prevent errors
       const material = meshRef.current.material as THREE.MeshBasicMaterial;
-      if (material.opacity !== undefined) {
+      if (material && typeof material.opacity !== 'undefined') {
         material.opacity = isDragging ? 0.7 : (hovered ? 0.95 : 0.9);
       }
     }
   });
   
+  // Extract individual position components to avoid direct array passing
+  const [x, y, z] = position;
+  
   return (
-    <group position={new THREE.Vector3(...position)}>
+    <group position={[x, y, z]}>
       {/* Screen name label */}
       <Text
         position={[0, height / 2 + 0.3, 0]}

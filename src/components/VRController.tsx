@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface VRControllerProps {
@@ -9,35 +8,30 @@ interface VRControllerProps {
   ray?: boolean;
 }
 
-// This is a placeholder component that would be replaced with actual controller models
-// and functionality in a full implementation
+// This is a simplified component that minimizes Three.js prop passing issues
 const VRController: React.FC<VRControllerProps> = ({ 
   hand, 
   position = [0, 0, 0],
   ray = true
 }) => {
-  // In a real application, we would:
-  // 1. Load actual controller models
-  // 2. Connect to WebXR input sources
-  // 3. Track controller movements and button presses
-  
+  // Create a simple controller visualization without complex nested objects
   return (
-    <group position={new THREE.Vector3(...position)}>
+    <group position={[position[0], position[1], position[2]]}>
       {/* Placeholder controller visualization */}
       <mesh>
         <boxGeometry args={[0.1, 0.05, 0.2]} />
         <meshStandardMaterial color={hand === 'left' ? '#4a68ff' : '#8a4fff'} />
       </mesh>
       
-      {/* Trigger button area */}
+      {/* Trigger button area - simplified */}
       <mesh position={[0, -0.025, -0.05]}>
         <cylinderGeometry args={[0.01, 0.01, 0.02, 12]} />
         <meshStandardMaterial color="#ff4a4a" />
       </mesh>
       
-      {/* Controller ray for pointing */}
+      {/* Controller ray for pointing - simplified */}
       {ray && (
-        <group>
+        <>
           <mesh position={[0, 0, -2]}>
             <cylinderGeometry args={[0.002, 0.002, 4, 8]} />
             <meshBasicMaterial color="#ffffff" opacity={0.5} transparent />
@@ -46,7 +40,7 @@ const VRController: React.FC<VRControllerProps> = ({
             <sphereGeometry args={[0.01, 16, 16]} />
             <meshBasicMaterial color="#ffffff" />
           </mesh>
-        </group>
+        </>
       )}
     </group>
   );
