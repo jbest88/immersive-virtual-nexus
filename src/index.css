@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -35,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -97,5 +91,24 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .vr-panel {
+    @apply bg-vr-panel rounded-lg backdrop-blur-md border border-vr-primary/30;
+    box-shadow: 0 0 15px rgba(74, 104, 255, 0.2);
+  }
+  
+  .vr-glow {
+    text-shadow: 0 0 10px rgba(0, 209, 255, 0.7);
+  }
+  
+  .vr-button {
+    @apply bg-vr-primary hover:bg-vr-primary/80 text-white font-medium py-2 px-4 rounded transition-all duration-300 shadow-md hover:shadow-lg;
+  }
+  
+  .vr-gradient-bg {
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1a4a 100%);
   }
 }
