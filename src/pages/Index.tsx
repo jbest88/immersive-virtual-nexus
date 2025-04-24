@@ -9,6 +9,7 @@ import VRScene from '@/components/VRScene';
 import VRMenu from '@/components/VRMenu';
 import VRKeyboard from '@/components/VRKeyboard';
 import DesktopStream from '@/components/DesktopStream';
+import NetworkDisplayComponent from '@/components/NetworkDisplayComponent';
 
 const Index = () => {
   // State for all VR settings
@@ -23,6 +24,9 @@ const Index = () => {
   
   // State to track the desktop stream
   const [desktopStream, setDesktopStream] = useState<MediaStream | null>(null);
+  
+  // State to track network streams
+  const [networkStreams, setNetworkStreams] = useState<{[peerId: string]: MediaStream}>({});
   
   // Handle settings changes
   const handleSettingChange = (setting: string, value: any) => {
@@ -58,6 +62,31 @@ const Index = () => {
     }
   };
   
+  // Handle remote network stream
+  const handleNetworkStream = (peerId: string, stream: MediaStream | null) => {
+    setNetworkStreams(prev => {
+      const newStreams = {...prev};
+      if (stream) {
+        newStreams[peerId] = stream;
+      } else {
+        delete newStreams[peerId];
+      }
+      return newStreams;
+    });
+    
+    if (stream) {
+      toast({
+        title: "Network Stream Connected",
+        description: "Remote desktop is now streaming to VR",
+      });
+    } else {
+      toast({
+        title: "Network Stream Disconnected",
+        description: "Remote desktop stream has ended",
+      });
+    }
+  };
+  
   return (
     <div className="min-h-screen relative overflow-hidden bg-vr-bg text-vr-text">
       {/* Main VR Scene */}
@@ -72,8 +101,12 @@ const Index = () => {
         
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <span className={`w-2 h-2 rounded-full ${desktopStream ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
-            <span className="text-sm">{desktopStream ? 'Desktop Connected' : 'Desktop Disconnected'}</span>
+            <span className={`w-2 h-2 rounded-full ${Object.keys(networkStreams).length > 0 ? 'bg-blue-400 animate-pulse' : (desktopStream ? 'bg-green-400 animate-pulse' : 'bg-red-400')}`}></span>
+            <span className="text-sm">
+              {Object.keys(networkStreams).length > 0 
+                ? 'Network Connected' 
+                : (desktopStream ? 'Desktop Connected' : 'Disconnected')}
+            </span>
           </div>
           
           <Button 
@@ -81,12 +114,14 @@ const Index = () => {
             className="text-vr-accent hover:text-vr-accent/80 border border-vr-accent/30"
             onClick={() => toast({
               title: "Connection Status",
-              description: desktopStream 
-                ? "Desktop stream connected with low latency" 
-                : "No active desktop stream",
+              description: Object.keys(networkStreams).length > 0 
+                ? "Network stream connected from remote machine"
+                : (desktopStream ? "Desktop stream connected with low latency" : "No active streams"),
             })}
           >
-            {desktopStream ? 'Session Active' : 'No Session'}
+            {Object.keys(networkStreams).length > 0 
+              ? 'Network Session'
+              : (desktopStream ? 'Local Session' : 'No Session')}
           </Button>
         </div>
       </div>
@@ -110,9 +145,10 @@ const Index = () => {
         <p className="text-sm mb-4">This panel allows you to test the virtual desktop functionality.</p>
         
         <Tabs defaultValue="screens">
-          <TabsList className="grid grid-cols-2 mb-4">
+          <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="screens">Screens</TabsTrigger>
-            <TabsTrigger value="preview">Desktop Preview</TabsTrigger>
+            <TabsTrigger value="preview">Local</TabsTrigger>
+            <TabsTrigger value="network">Network</TabsTrigger>
           </TabsList>
           
           <TabsContent value="screens">
@@ -171,6 +207,19 @@ const Index = () => {
                 : "Click to start desktop stream"}
             </div>
           </TabsContent>
+          
+          <TabsContent value="network">
+            <NetworkDisplayComponent
+              className="border-0"
+              onStreamReceived={handleNetworkStream}
+            />
+            
+            <div className="mt-3 text-xs text-vr-text/70 text-center">
+              {Object.keys(networkStreams).length > 0
+                ? `Connected to ${Object.keys(networkStreams).length} remote desktop(s)`
+                : "Connect to desktop on your local network"}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
       
@@ -179,7 +228,7 @@ const Index = () => {
         <h2 className="text-lg font-semibold mb-2">Virtual Desktop Experience</h2>
         <p className="text-sm text-vr-text/90 mb-3">
           This application demonstrates a VR desktop environment that allows you to view and interact 
-          with your computer screens in virtual reality.
+          with your computer screens in virtual reality. You can connect to desktops on your local network.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <div className="text-xs bg-vr-primary/20 p-2 rounded">

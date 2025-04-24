@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls } from '@react-three/drei';
@@ -8,6 +7,7 @@ import { Perf } from 'r3f-perf';
 
 import VirtualScreen from '../models/VirtualScreen';
 import screenCaptureService from '../services/screenCaptureService';
+import webRTCService from '../services/webrtcService';
 
 interface VRSceneProps {
   environmentBrightness?: number;
@@ -65,9 +65,11 @@ const VRScene: React.FC<VRSceneProps> = ({
     height: number;
     name: string;
     stream: MediaStream | null;
+    sourceType: 'local' | 'remote';
+    sourceId: string;
   }>>([
-    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display", stream: null },
-    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Secondary Monitor", stream: null },
+    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display", stream: null, sourceType: 'local', sourceId: 'display-1' },
+    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Remote Desktop", stream: null, sourceType: 'remote', sourceId: '' },
   ]);
   
   // State to track active streams
@@ -88,10 +90,29 @@ const VRScene: React.FC<VRSceneProps> = ({
     });
   };
   
+  // Handle remote stream from WebRTC
+  const handleRemoteStream = (peerId: string, stream: MediaStream | null) => {
+    // Find screen configured for remote display
+    const remoteScreen = screens.find(s => s.sourceType === 'remote');
+    if (remoteScreen) {
+      // If we got a stream, assign it to the screen
+      // Otherwise, clear the stream
+      assignStreamToScreen(remoteScreen.id, stream);
+      
+      // Update the source ID if we have a new stream
+      if (stream) {
+        remoteScreen.sourceId = peerId;
+      } else if (remoteScreen.sourceId === peerId) {
+        remoteScreen.sourceId = '';
+      }
+    }
+  };
+  
   // Cleanup streams on unmount
   useEffect(() => {
     return () => {
       screenCaptureService.stopAllCaptures();
+      webRTCService.cleanup();
     };
   }, []);
   
@@ -140,7 +161,7 @@ const VRScene: React.FC<VRSceneProps> = ({
         </p>
         
         <div className="space-y-2">
-          {screens.map(screen => (
+          {screens.filter(screen => screen.sourceType === 'local').map(screen => (
             <div key={screen.id} className="p-2 bg-vr-primary/10 rounded">
               <p className="text-sm font-medium text-vr-accent mb-2">{screen.name}</p>
               <button
