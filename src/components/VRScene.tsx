@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls } from '@react-three/drei';
 import { VRButton, XR, Controllers, Hands } from '@react-three/xr';
@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { Perf } from 'r3f-perf';
 
 import VirtualScreen from '../models/VirtualScreen';
-import VRController from './VRController';
+import screenCaptureService from '../services/screenCaptureService';
 
 interface VRSceneProps {
   environmentBrightness?: number;
@@ -64,10 +64,36 @@ const VRScene: React.FC<VRSceneProps> = ({
     width: number;
     height: number;
     name: string;
+    stream: MediaStream | null;
   }>>([
-    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display" },
-    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Secondary Monitor" },
+    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display", stream: null },
+    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Secondary Monitor", stream: null },
   ]);
+  
+  // State to track active streams
+  const [activeStreams, setActiveStreams] = useState<Map<number, MediaStream>>(new Map());
+  
+  // Handle stream assignment to a screen
+  const assignStreamToScreen = (screenId: number, stream: MediaStream | null) => {
+    setActiveStreams(prev => {
+      const newStreams = new Map(prev);
+      
+      if (stream) {
+        newStreams.set(screenId, stream);
+      } else {
+        newStreams.delete(screenId);
+      }
+      
+      return newStreams;
+    });
+  };
+  
+  // Cleanup streams on unmount
+  useEffect(() => {
+    return () => {
+      screenCaptureService.stopAllCaptures();
+    };
+  }, []);
   
   return (
     <div className="absolute inset-0 vr-gradient-bg">
@@ -88,6 +114,7 @@ const VRScene: React.FC<VRSceneProps> = ({
               width={screen.width}
               height={screen.height}
               name={screen.name}
+              videoStream={activeStreams.get(screen.id) || null}
             />
           ))}
           
@@ -104,9 +131,39 @@ const VRScene: React.FC<VRSceneProps> = ({
           />
         </XR>
       </Canvas>
+      
+      {/* Screen Stream Control Panel (hidden in VR mode) */}
+      <div className="absolute top-20 left-6 z-30 vr-panel p-4 w-72 pointer-events-auto hidden md:block">
+        <h3 className="text-lg font-semibold mb-3 text-vr-accent">Stream Control</h3>
+        <p className="text-sm mb-3 text-vr-text/70">
+          Select which monitor to stream to each virtual screen
+        </p>
+        
+        <div className="space-y-2">
+          {screens.map(screen => (
+            <div key={screen.id} className="p-2 bg-vr-primary/10 rounded">
+              <p className="text-sm font-medium text-vr-accent mb-2">{screen.name}</p>
+              <button
+                className="w-full p-2 bg-vr-accent/20 hover:bg-vr-accent/30 rounded text-sm flex justify-between items-center"
+                onClick={() => {
+                  // This would open a device selector in a real app
+                  // For now, we'll simulate selecting the first display
+                  screenCaptureService.captureScreen(`display-${screen.id}`).then(stream => {
+                    if (stream) {
+                      assignStreamToScreen(screen.id, stream);
+                    }
+                  });
+                }}
+              >
+                <span>Stream Display to {screen.name}</span>
+                <div className={`w-2 h-2 rounded-full ${activeStreams.has(screen.id) ? 'bg-green-400' : 'bg-gray-400'}`}></div>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default VRScene;
-

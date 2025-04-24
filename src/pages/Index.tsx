@@ -21,6 +21,9 @@ const Index = () => {
     highPerformanceMode: false,
   });
   
+  // State to track the desktop stream
+  const [desktopStream, setDesktopStream] = useState<MediaStream | null>(null);
+  
   // Handle settings changes
   const handleSettingChange = (setting: string, value: any) => {
     setVrSettings(prev => ({ ...prev, [setting]: value }));
@@ -38,6 +41,23 @@ const Index = () => {
     // This would send the key to the desktop stream in a real implementation
   };
   
+  // Handle stream change from DesktopStream
+  const handleStreamChange = (stream: MediaStream | null) => {
+    setDesktopStream(stream);
+    
+    if (stream) {
+      toast({
+        title: "Desktop Stream Connected",
+        description: "Your desktop is now streaming to VR",
+      });
+    } else {
+      toast({
+        title: "Desktop Stream Disconnected",
+        description: "Stream has been stopped",
+      });
+    }
+  };
+  
   return (
     <div className="min-h-screen relative overflow-hidden bg-vr-bg text-vr-text">
       {/* Main VR Scene */}
@@ -52,8 +72,8 @@ const Index = () => {
         
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-            <span className="text-sm">Desktop Connected</span>
+            <span className={`w-2 h-2 rounded-full ${desktopStream ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+            <span className="text-sm">{desktopStream ? 'Desktop Connected' : 'Desktop Disconnected'}</span>
           </div>
           
           <Button 
@@ -61,10 +81,12 @@ const Index = () => {
             className="text-vr-accent hover:text-vr-accent/80 border border-vr-accent/30"
             onClick={() => toast({
               title: "Connection Status",
-              description: "Desktop stream connected with 12ms latency",
+              description: desktopStream 
+                ? "Desktop stream connected with low latency" 
+                : "No active desktop stream",
             })}
           >
-            Session Active
+            {desktopStream ? 'Session Active' : 'No Session'}
           </Button>
         </div>
       </div>
@@ -136,12 +158,17 @@ const Index = () => {
           <TabsContent value="preview">
             <Card className="border-0 overflow-hidden">
               <CardContent className="p-1">
-                <DesktopStream className="h-48" />
+                <DesktopStream 
+                  className="h-48" 
+                  onStreamChange={handleStreamChange}
+                />
               </CardContent>
             </Card>
             
             <div className="mt-3 text-xs text-vr-text/70 text-center">
-              Preview of desktop stream
+              {desktopStream 
+                ? "Desktop stream active - click to manage" 
+                : "Click to start desktop stream"}
             </div>
           </TabsContent>
         </Tabs>

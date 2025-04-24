@@ -1,7 +1,7 @@
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, useVideoTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface VirtualScreenProps {
@@ -9,6 +9,7 @@ interface VirtualScreenProps {
   width?: number;
   height?: number;
   image?: string;
+  videoStream?: MediaStream | null;
   name?: string;
   isDragging?: boolean;
   onDrag?: (position: [number, number, number]) => void;
@@ -19,6 +20,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   width = 16,
   height = 9,
   image = '',
+  videoStream = null,
   name = 'Screen',
   isDragging = false,
   onDrag
@@ -26,16 +28,50 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
   
-  // Load texture if provided
-  React.useEffect(() => {
-    if (image) {
+  // Create video element for the stream if provided
+  useEffect(() => {
+    if (videoStream) {
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = videoStream;
+      video.play().catch(e => console.error("Error playing video:", e));
+      setVideoElement(video);
+      
+      // Create a video texture
+      const videoTexture = new THREE.VideoTexture(video);
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.format = THREE.RGBFormat;
+      videoTextureRef.current = videoTexture;
+      setTexture(videoTexture);
+      
+      return () => {
+        video.srcObject = null;
+        videoTextureRef.current?.dispose();
+      };
+    } else if (image) {
+      // Load image texture if provided and no video
       const textureLoader = new THREE.TextureLoader();
       textureLoader.load(image, (loadedTexture) => {
         setTexture(loadedTexture);
       });
+    } else {
+      // Reset texture if neither video nor image
+      setTexture(null);
     }
-  }, [image]);
+  }, [videoStream, image]);
+  
+  // Update video texture each frame
+  useFrame(() => {
+    if (videoTextureRef.current && videoElement) {
+      videoTextureRef.current.needsUpdate = true;
+    }
+  });
   
   // Use memoized values for material properties
   const materialProps = useMemo(() => ({
@@ -44,11 +80,6 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     transparent: true,
     map: texture || undefined
   }), [hovered, isDragging, texture]);
-  
-  // Safe material updates
-  useFrame(() => {
-    if (!meshRef.current) return;
-  });
   
   // Handle pointer events directly
   const handlePointerOver = () => setHovered(true);

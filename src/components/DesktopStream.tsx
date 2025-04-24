@@ -1,38 +1,127 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Monitor, MonitorX, RefreshCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import screenCaptureService, { DisplayDevice } from '@/services/screenCaptureService';
+import { toast } from '@/components/ui/use-toast';
 
 interface DesktopStreamProps {
   deviceId?: string;
   className?: string;
-  isConnected?: boolean;
+  onStreamChange?: (stream: MediaStream | null) => void;
 }
 
 const DesktopStream: React.FC<DesktopStreamProps> = ({ 
-  deviceId, 
+  deviceId = 'display-1', 
   className,
-  isConnected = true
+  onStreamChange
 }) => {
-  const [streamStatus, setStreamStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [streamStatus, setStreamStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [availableDevices, setAvailableDevices] = useState<DisplayDevice[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = useState(deviceId);
   
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Initialize and load available devices
   useEffect(() => {
-    // Mock connection process
-    const timer = setTimeout(() => {
-      if (isConnected) {
+    const loadDevices = async () => {
+      const devices = await screenCaptureService.getDisplayDevices();
+      setAvailableDevices(devices);
+    };
+    
+    loadDevices();
+    
+    return () => {
+      if (streamRef.current) {
+        stopCapture();
+      }
+    };
+  }, []);
+  
+  const startCapture = async () => {
+    setStreamStatus('connecting');
+    
+    try {
+      const stream = await screenCaptureService.captureScreen(activeDeviceId);
+      
+      if (stream) {
+        streamRef.current = stream;
         setStreamStatus('connected');
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        
+        // Notify parent about the new stream
+        if (onStreamChange) {
+          onStreamChange(stream);
+        }
+        
+        toast({
+          title: "Screen Capture Started",
+          description: "Your desktop is now being streamed to VR"
+        });
       } else {
         setStreamStatus('error');
-        setErrorMessage('Could not connect to desktop stream. Please check your connection and permissions.');
+        setErrorMessage('Failed to start stream');
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Error starting capture:', error);
+      setStreamStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to capture screen');
+    }
+  };
+  
+  const stopCapture = () => {
+    if (streamRef.current) {
+      screenCaptureService.stopCapture(activeDeviceId);
+      streamRef.current = null;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      
+      // Notify parent about stream ended
+      if (onStreamChange) {
+        onStreamChange(null);
+      }
+    }
     
-    return () => clearTimeout(timer);
-  }, [isConnected]);
+    setStreamStatus('idle');
+  };
+  
+  const handleDeviceChange = (deviceId: string) => {
+    if (streamStatus === 'connected') {
+      stopCapture();
+    }
+    
+    setActiveDeviceId(deviceId);
+  };
+  
+  const handleRetry = () => {
+    setStreamStatus('idle');
+    setErrorMessage('');
+  };
   
   return (
-    <Card className={cn("overflow-hidden", className)}>
+    <Card className={cn("overflow-hidden relative", className)}>
+      {streamStatus === 'idle' && (
+        <div className="flex flex-col items-center justify-center h-full p-8 bg-vr-bg">
+          <Monitor className="h-12 w-12 mb-4 text-vr-accent" />
+          <p className="text-vr-text text-xl mb-4">Ready to Stream Desktop</p>
+          <Button 
+            onClick={startCapture} 
+            className="bg-vr-accent hover:bg-vr-accent/80"
+          >
+            Start Capture
+          </Button>
+        </div>
+      )}
+      
       {streamStatus === 'connecting' && (
         <div className="flex flex-col items-center justify-center h-full p-8 bg-vr-bg">
           <div className="w-12 h-12 border-4 border-vr-primary border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -43,58 +132,44 @@ const DesktopStream: React.FC<DesktopStreamProps> = ({
       {streamStatus === 'error' && (
         <div className="flex flex-col items-center justify-center h-full p-8 bg-vr-bg">
           <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-            <span className="text-3xl">⚠️</span>
+            <MonitorX className="h-10 w-10 text-red-400" />
           </div>
           <p className="text-red-400 text-xl mb-2">Connection Failed</p>
-          <p className="text-vr-text/80 text-center">{errorMessage}</p>
+          <p className="text-vr-text/80 text-center mb-4">{errorMessage}</p>
+          <Button 
+            onClick={handleRetry} 
+            variant="outline" 
+            className="border-vr-accent/50 text-vr-accent"
+          >
+            <RefreshCcw className="h-4 w-4 mr-2" /> Try Again
+          </Button>
         </div>
       )}
       
       {streamStatus === 'connected' && (
         <div className="relative h-full">
-          {/* This would be replaced with actual desktop streaming component in a real app */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col">
-            {/* Mock desktop UI */}
-            <div className="bg-gray-900 p-2 flex items-center justify-between border-b border-gray-700">
-              <div className="flex space-x-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              </div>
-              <div className="text-gray-400 text-xs">Desktop Stream - Connected</div>
-              <div className="text-xs text-gray-500">12ms</div>
-            </div>
-            
-            <div className="flex-1 flex">
-              {/* Mock file explorer */}
-              <div className="w-48 bg-gray-800 p-2">
-                <div className="text-gray-300 text-sm mb-2">File Explorer</div>
-                <div className="space-y-1">
-                  <div className="text-gray-400 text-xs pl-2">Documents</div>
-                  <div className="text-gray-400 text-xs pl-2">Downloads</div>
-                  <div className="text-gray-400 text-xs pl-2">Pictures</div>
-                  <div className="text-gray-400 text-xs pl-2">Videos</div>
-                </div>
-              </div>
-              
-              {/* Mock content area */}
-              <div className="flex-1 bg-gray-700 p-2">
-                <div className="bg-white rounded shadow h-full"></div>
-              </div>
-            </div>
-            
-            {/* Mock taskbar */}
-            <div className="bg-gray-900 p-1 flex items-center space-x-2 border-t border-gray-700">
-              <div className="w-8 h-6 rounded bg-blue-500"></div>
-              <div className="w-8 h-6 rounded bg-gray-700"></div>
-              <div className="w-8 h-6 rounded bg-gray-700"></div>
-              <div className="flex-1"></div>
-              <div className="text-xs text-gray-400">4:30 PM</div>
-            </div>
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            className="w-full h-full object-cover"
+          />
+          
+          {/* Stream controls */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2 backdrop-blur-sm flex items-center justify-between">
+            <span className="text-white text-xs">Desktop Stream</span>
+            <Button 
+              size="sm" 
+              variant="destructive" 
+              onClick={stopCapture}
+              className="h-7 px-2 py-1 text-xs"
+            >
+              Stop
+            </Button>
           </div>
           
           {/* Connection indicator */}
-          <div className="absolute top-2 right-2 flex items-center bg-gray-900/50 rounded-full px-2 py-1">
+          <div className="absolute top-2 right-2 flex items-center bg-black/50 rounded-full px-2 py-1 backdrop-blur-sm">
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse mr-1"></div>
             <span className="text-green-400 text-xs">Live</span>
           </div>
