@@ -59,9 +59,9 @@ const VRScene: React.FC<VRSceneProps> = ({
   environmentBrightness = 0.7,
   enablePerformanceMonitor = false,
 }) => {
-  const [screens, setScreens] = useState([
-    { id: 1, position: [-5, 1, -5], width: 16, height: 9, name: "Main Display" },
-    { id: 2, position: [5, 1, -5], width: 10, height: 8, name: "Secondary Monitor" },
+  const [screens] = useState([
+    { id: 1, position: [-5, 1, -5] as [number, number, number], width: 16, height: 9, name: "Main Display" },
+    { id: 2, position: [5, 1, -5] as [number, number, number], width: 10, height: 8, name: "Secondary Monitor" },
   ]);
   
   return (
@@ -77,7 +77,7 @@ const VRScene: React.FC<VRSceneProps> = ({
         {screens.map((screen) => (
           <VirtualScreen
             key={screen.id}
-            position={screen.position as [number, number, number]}
+            position={screen.position}
             width={screen.width}
             height={screen.height}
             name={screen.name}
