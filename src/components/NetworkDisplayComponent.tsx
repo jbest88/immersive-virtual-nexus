@@ -27,9 +27,11 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
         setInitialized(true);
         
         // Set up listener for peer updates
-        return webRTCService.addPeerListener((peers) => {
+        const cleanupListener = webRTCService.addPeerListener((peers) => {
           setRemotePeers(peers);
         });
+        
+        return cleanupListener;
       } catch (error) {
         console.error("Failed to initialize WebRTC:", error);
         toast({
@@ -37,14 +39,19 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
           description: "Could not initialize network connection",
           variant: "destructive"
         });
+        return () => {}; // Return empty cleanup function in case of error
       }
     };
     
-    const cleanup = initWebRTC();
+    let cleanupFunction: (() => void) | undefined;
+    
+    initWebRTC().then(cleanup => {
+      cleanupFunction = cleanup;
+    });
     
     return () => {
       // Clean up listener and all connections
-      if (cleanup) cleanup();
+      if (cleanupFunction) cleanupFunction();
       webRTCService.cleanup();
     };
   }, []);
