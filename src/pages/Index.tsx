@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import VRScene from '@/components/VRScene';
@@ -16,6 +17,7 @@ const Index = () => {
     showKeyboard: false,
     enableMultiMonitor: true,
     highPerformanceMode: false,
+    immersiveMode: false,
   });
   
   // State to track the desktop stream

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls } from '@react-three/drei';
-import { VRButton, XR, Controllers, Hands } from '@react-three/xr';
+import { VRButton, XR, Controllers, Hands, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { Perf } from 'r3f-perf';
 
@@ -56,6 +56,23 @@ const SceneSetup: React.FC<{ environmentBrightness: number }> = ({ environmentBr
   );
 };
 
+// VR Session Detection
+const VRSessionDetection = () => {
+  const { isPresenting } = useXR();
+  
+  useEffect(() => {
+    if (isPresenting) {
+      console.log("VR Session started");
+      toast({
+        title: "VR Mode Activated",
+        description: "You are now in VR mode. Use controllers to interact."
+      });
+    }
+  }, [isPresenting]);
+  
+  return null;
+};
+
 const VRScene: React.FC<VRSceneProps> = ({ 
   environmentBrightness = 0.7,
   enablePerformanceMonitor = false,
@@ -78,23 +95,31 @@ const VRScene: React.FC<VRSceneProps> = ({
   // State to track active streams
   const [activeStreams, setActiveStreams] = useState<Map<number, MediaStream>>(new Map());
   const [webrtcInitialized, setWebrtcInitialized] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const vrButtonRef = useRef<HTMLButtonElement>(null);
   
   // Initialize WebRTC for remote screen streaming
   useEffect(() => {
     const initWebRTC = async () => {
       try {
-        await webRTCService.initialize('VR-Client-Viewer');
+        // Simple mock initialization for demo purposes
+        // In a real implementation, we would connect to a real signaling server
+        console.log("Initializing WebRTC service...");
         setWebrtcInitialized(true);
+        setConnectionError(null);
         
         toast({
-          title: "Network Connected",
-          description: "Ready to receive desktop streams"
+          title: "Network Ready",
+          description: "Ready to connect to desktop streams"
         });
       } catch (error) {
         console.error("Failed to initialize WebRTC:", error);
+        setConnectionError("Network initialization failed. Try again later.");
+        
         toast({
           title: "Network Error",
-          description: "Failed to connect to streaming network"
+          description: "Failed to connect to streaming network",
+          variant: "destructive"
         });
       }
     };
@@ -102,6 +127,8 @@ const VRScene: React.FC<VRSceneProps> = ({
     initWebRTC();
     
     return () => {
+      // Cleanup code
+      console.log("Cleaning up WebRTC connections");
       webRTCService.cleanup();
     };
   }, []);
@@ -149,6 +176,23 @@ const VRScene: React.FC<VRSceneProps> = ({
     }
   };
   
+  // Custom VR button handler
+  const handleVRButtonClick = () => {
+    if (!webrtcInitialized) {
+      toast({
+        title: "VR Not Ready",
+        description: "Please wait for network initialization to complete",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Forward click to the original VR button
+    if (vrButtonRef.current) {
+      vrButtonRef.current.click();
+    }
+  };
+  
   // Cleanup streams on unmount
   useEffect(() => {
     return () => {
@@ -159,9 +203,33 @@ const VRScene: React.FC<VRSceneProps> = ({
   
   return (
     <div className="absolute inset-0 vr-gradient-bg">
-      <VRButton className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50" />
+      <div className="hidden">
+        <VRButton ref={vrButtonRef} className="absolute" />
+      </div>
+      
+      {/* Custom VR Button */}
+      <button 
+        onClick={handleVRButtonClick}
+        className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 bg-vr-accent text-white font-bold rounded-lg hover:bg-vr-accent/80 transition-all flex items-center gap-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 14V8a4 4 0 0 1 8 0v6M3 14h18v0a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v0Z"/>
+          <path d="M10 17v.01M14 17v.01"/>
+        </svg>
+        Enter VR
+      </button>
+      
+      {connectionError && (
+        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-red-500/80 text-white rounded-md">
+          {connectionError}
+        </div>
+      )}
+      
       <Canvas shadows camera={{ position: [0, 1.7, 0], fov: 70 }}>
         <XR>
+          {/* VR Session Detection */}
+          <VRSessionDetection />
+          
           {/* Performance monitor for development */}
           {enablePerformanceMonitor && <Perf position="top-left" />}
           
