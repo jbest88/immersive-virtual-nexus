@@ -79,6 +79,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
+      console.log("Screen grabbed with controller", controllerId);
       const screenPosition = meshRef.current.position.clone();
       const offset = new THREE.Vector3().subVectors(screenPosition, controllerPosition);
       meshRef.current.userData.offset = offset;
@@ -98,6 +99,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   };
 
   const handleRelease = (controllerId: string) => {
+    console.log("Screen released from controller", controllerId);
     if (meshRef.current) {
       meshRef.current.userData.offset = null;
       setGrabbed(false);
@@ -109,6 +111,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     // Positive values (pushing forward) make the screen bigger
     // Negative values (pulling back) make the screen smaller
     const resizeFactor = 1 + (joystickValue * 0.03); // Scale the effect
+    console.log(`Joystick input: ${joystickValue}, applying resize factor: ${resizeFactor}`);
     
     setCurrentSize(prevSize => {
       const newWidth = Math.max(4, Math.min(30, prevSize.width * resizeFactor));

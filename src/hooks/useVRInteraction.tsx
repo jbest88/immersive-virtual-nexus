@@ -1,6 +1,7 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useXR, XRController } from '@react-three/xr';
+import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 
 export const useVRInteraction = (
@@ -11,7 +12,9 @@ export const useVRInteraction = (
 ) => {
   const { controllers } = useXR();
   const [activeController, setActiveController] = useState<string | null>(null);
+  const joystickThreshold = 0.1; // Minimum joystick movement to trigger resize
 
+  // Setup event handlers for grip buttons (grab/release)
   useEffect(() => {
     const handleControllerEvent = (controller: XRController, isGrip: boolean) => {
       if (isGrip) {
@@ -26,29 +29,17 @@ export const useVRInteraction = (
     controllers.forEach(controller => {
       controller.grip.addEventListener('squeezestart', () => handleControllerEvent(controller, true));
       controller.grip.addEventListener('squeezeend', () => handleControllerEvent(controller, false));
-      
-      // Add joystick event handling
-      controller.inputSource?.gamepad?.addEventListener('axes', (event) => {
-        if (controller.id === activeController && event.axes && event.axes.length >= 2) {
-          // Use y-axis of the joystick for resizing (forward/backward)
-          const joystickY = event.axes[1];
-          if (Math.abs(joystickY) > 0.1) { // Add a small threshold
-            onJoystickMove?.(controller.id, joystickY);
-          }
-        }
-      });
     });
 
     return () => {
       controllers.forEach(controller => {
         controller.grip.removeEventListener('squeezestart', () => handleControllerEvent(controller, true));
         controller.grip.removeEventListener('squeezeend', () => handleControllerEvent(controller, false));
-        
-        controller.inputSource?.gamepad?.removeEventListener('axes', () => {});
       });
     };
-  }, [controllers, activeController, onGrab, onRelease, onJoystickMove]);
+  }, [controllers, activeController, onGrab, onRelease]);
 
+  // Handle controller movement
   useEffect(() => {
     if (activeController) {
       const controller = controllers.find(c => c.id === activeController);
@@ -62,6 +53,25 @@ export const useVRInteraction = (
       }
     }
   }, [activeController, controllers, onMove]);
+
+  // Read gamepad input on each frame for joystick values
+  useFrame(() => {
+    if (activeController) {
+      controllers.forEach(controller => {
+        if (controller.id === activeController && controller.inputSource?.gamepad) {
+          const gamepad = controller.inputSource.gamepad;
+          // Check axes (usually axes[1] is the Y axis of the main joystick)
+          if (gamepad.axes && gamepad.axes.length >= 2) {
+            const joystickY = gamepad.axes[1];
+            // Only trigger if joystick moved beyond threshold
+            if (Math.abs(joystickY) > joystickThreshold) {
+              onJoystickMove?.(controller.id, joystickY);
+            }
+          }
+        }
+      });
+    }
+  });
 
   return { activeController };
 };
