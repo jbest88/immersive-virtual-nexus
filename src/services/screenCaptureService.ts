@@ -17,6 +17,7 @@ export interface ScreenCaptureOptions {
 
 class ScreenCaptureService {
   private streams: Map<string, MediaStream> = new Map();
+  private streamIdMap: Map<MediaStream, string> = new Map();
   
   /**
    * Get available display screens
@@ -66,8 +67,8 @@ class ScreenCaptureService {
       // Request screen capture from the browser
       const stream = await navigator.mediaDevices.getDisplayMedia(captureOptions);
       
-      // Add screen ID metadata
-      stream.id = displayId;
+      // Store the display ID mapping for this stream instead of modifying the read-only id property
+      this.streamIdMap.set(stream, displayId);
       
       // Store the stream
       this.streams.set(displayId, stream);
@@ -97,6 +98,13 @@ class ScreenCaptureService {
   }
   
   /**
+   * Get the display ID associated with a stream
+   */
+  getDisplayId(stream: MediaStream): string | undefined {
+    return this.streamIdMap.get(stream);
+  }
+  
+  /**
    * Get all active streams
    */
   getAllStreams(): Map<string, MediaStream> {
@@ -110,6 +118,7 @@ class ScreenCaptureService {
     const stream = this.streams.get(displayId);
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
+      this.streamIdMap.delete(stream);
       this.streams.delete(displayId);
     }
   }
@@ -120,6 +129,7 @@ class ScreenCaptureService {
   stopAllCaptures(): void {
     this.streams.forEach(stream => {
       stream.getTracks().forEach(track => track.stop());
+      this.streamIdMap.delete(stream);
     });
     this.streams.clear();
   }
