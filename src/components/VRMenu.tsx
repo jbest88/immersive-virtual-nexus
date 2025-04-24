@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -6,7 +5,9 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Monitor, Keyboard, Menu, ArrowRight } from 'lucide-react';
+import { Settings, Monitor, Keyboard, Menu, ArrowRight, ScreenShare } from 'lucide-react';
+import DesktopStream from '@/components/DesktopStream';
+import NetworkDisplayComponent from '@/components/NetworkDisplayComponent';
 
 interface VRMenuProps {
   onSettingChange: (setting: string, value: any) => void;
@@ -18,14 +19,24 @@ interface VRMenuProps {
     enableMultiMonitor: boolean;
     highPerformanceMode: boolean;
   };
+  desktopStream: MediaStream | null;
+  networkStreams: {[peerId: string]: MediaStream};
+  onStreamChange: (stream: MediaStream | null) => void;
+  onNetworkStream: (peerId: string, stream: MediaStream | null) => void;
 }
 
-const VRMenu: React.FC<VRMenuProps> = ({ onSettingChange, settings }) => {
+const VRMenu: React.FC<VRMenuProps> = ({ 
+  onSettingChange, 
+  settings, 
+  desktopStream, 
+  networkStreams,
+  onStreamChange,
+  onNetworkStream 
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   return (
     <div className={`fixed bottom-8 right-8 transition-all duration-300 z-50 ${isExpanded ? 'w-96' : 'w-16'}`}>
-      {/* Toggle button */}
       <Button 
         className="absolute right-0 bottom-0 w-16 h-16 rounded-full bg-vr-primary text-white shadow-lg hover:bg-vr-secondary transition-all"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -33,7 +44,6 @@ const VRMenu: React.FC<VRMenuProps> = ({ onSettingChange, settings }) => {
         <Menu size={24} />
       </Button>
       
-      {/* Menu panel */}
       {isExpanded && (
         <Card className="vr-panel mb-20 w-full animate-fade-in">
           <CardHeader>
@@ -45,7 +55,7 @@ const VRMenu: React.FC<VRMenuProps> = ({ onSettingChange, settings }) => {
             <Tabs defaultValue="display" className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="display">Display</TabsTrigger>
-                <TabsTrigger value="input">Input</TabsTrigger>
+                <TabsTrigger value="screens">Screens</TabsTrigger>
                 <TabsTrigger value="system">System</TabsTrigger>
               </TabsList>
               
@@ -105,38 +115,42 @@ const VRMenu: React.FC<VRMenuProps> = ({ onSettingChange, settings }) => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="input" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="showKeyboard" className="text-vr-text flex items-center gap-2">
-                    <Keyboard size={16} /> Virtual Keyboard
-                  </Label>
-                  <Switch 
-                    id="showKeyboard" 
-                    checked={settings.showKeyboard}
-                    onCheckedChange={(checked) => onSettingChange('showKeyboard', checked)} 
-                  />
-                </div>
-                
-                <div className="space-y-2 pt-2">
-                  <Label className="text-vr-text">Input Shortcuts</Label>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="vr-panel p-2 rounded">
-                      <p className="text-vr-accent font-medium">Toggle Menu</p>
-                      <p className="text-vr-text/80">Left Controller + B</p>
-                    </div>
-                    <div className="vr-panel p-2 rounded">
-                      <p className="text-vr-accent font-medium">Reset Position</p>
-                      <p className="text-vr-text/80">Both Triggers + Y</p>
-                    </div>
-                    <div className="vr-panel p-2 rounded">
-                      <p className="text-vr-accent font-medium">Cycle Monitors</p>
-                      <p className="text-vr-text/80">Right Thumb + A</p>
-                    </div>
-                    <div className="vr-panel p-2 rounded">
-                      <p className="text-vr-accent font-medium">Quick Settings</p>
-                      <p className="text-vr-text/80">Left Thumb + X</p>
+              <TabsContent value="screens" className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-vr-text">Local Desktop Stream</Label>
+                  <div className="border rounded-md p-2">
+                    <DesktopStream 
+                      className="h-32" 
+                      onStreamChange={onStreamChange}
+                    />
+                    <div className="mt-2 text-xs text-vr-text/70 text-center">
+                      {desktopStream 
+                        ? "Desktop stream active" 
+                        : "Click to start desktop stream"}
                     </div>
                   </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-vr-text">Network Streams</Label>
+                  <NetworkDisplayComponent
+                    className="border rounded-md p-2"
+                    onStreamReceived={onNetworkStream}
+                  />
+                  <div className="mt-2 text-xs text-vr-text/70 text-center">
+                    {Object.keys(networkStreams).length > 0
+                      ? `Connected to ${Object.keys(networkStreams).length} remote desktop(s)`
+                      : "Connect to desktop on your local network"}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="multiMonitor" className="text-vr-text">Multi-monitor Support</Label>
+                  <Switch 
+                    id="multiMonitor" 
+                    checked={settings.enableMultiMonitor}
+                    onCheckedChange={(checked) => onSettingChange('enableMultiMonitor', checked)} 
+                  />
                 </div>
               </TabsContent>
               

@@ -1,15 +1,11 @@
-
 import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/use-toast';
-
 import VRScene from '@/components/VRScene';
 import VRMenu from '@/components/VRMenu';
 import VRKeyboard from '@/components/VRKeyboard';
 import DesktopStream from '@/components/DesktopStream';
 import NetworkDisplayComponent from '@/components/NetworkDisplayComponent';
+import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
   // State for all VR settings
@@ -86,10 +82,9 @@ const Index = () => {
       });
     }
   };
-  
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-vr-bg text-vr-text">
-      {/* Main VR Scene */}
       <VRScene 
         environmentBrightness={vrSettings.environmentBrightness}
         enablePerformanceMonitor={vrSettings.highPerformanceMode}
@@ -108,21 +103,6 @@ const Index = () => {
                 : (desktopStream ? 'Desktop Connected' : 'Disconnected')}
             </span>
           </div>
-          
-          <Button 
-            variant="ghost" 
-            className="text-vr-accent hover:text-vr-accent/80 border border-vr-accent/30"
-            onClick={() => toast({
-              title: "Connection Status",
-              description: Object.keys(networkStreams).length > 0 
-                ? "Network stream connected from remote machine"
-                : (desktopStream ? "Desktop stream connected with low latency" : "No active streams"),
-            })}
-          >
-            {Object.keys(networkStreams).length > 0 
-              ? 'Network Session'
-              : (desktopStream ? 'Local Session' : 'No Session')}
-          </Button>
         </div>
       </div>
       
@@ -137,91 +117,11 @@ const Index = () => {
       <VRMenu 
         settings={vrSettings}
         onSettingChange={handleSettingChange}
+        desktopStream={desktopStream}
+        networkStreams={networkStreams}
+        onStreamChange={handleStreamChange}
+        onNetworkStream={handleNetworkStream}
       />
-      
-      {/* Demo controls - would be replaced with actual VR input in a real app */}
-      <div className="absolute top-20 right-6 z-30 vr-panel p-4 w-72">
-        <h3 className="text-lg font-semibold mb-3 text-vr-accent">Demo Controls</h3>
-        <p className="text-sm mb-4">This panel allows you to test the virtual desktop functionality.</p>
-        
-        <Tabs defaultValue="screens">
-          <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="screens">Screens</TabsTrigger>
-            <TabsTrigger value="preview">Local</TabsTrigger>
-            <TabsTrigger value="network">Network</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="screens">
-            <div className="space-y-3">
-              <Button 
-                className="w-full"
-                onClick={() => toast({
-                  title: "Screen Added",
-                  description: "A new virtual monitor has been added to your workspace.",
-                })}
-              >
-                Add Screen
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full border-vr-accent/50 text-vr-accent"
-                onClick={() => {
-                  toast({
-                    title: "Screens Rearranged",
-                    description: "Your virtual screens have been aligned in a horizontal layout.",
-                  });
-                }}
-              >
-                Arrange Horizontally
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full border-vr-accent/50 text-vr-accent"
-                onClick={() => {
-                  toast({
-                    title: "Screens Reset",
-                    description: "All screen positions have been reset to default.",
-                  });
-                }}
-              >
-                Reset Positions
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="preview">
-            <Card className="border-0 overflow-hidden">
-              <CardContent className="p-1">
-                <DesktopStream 
-                  className="h-48" 
-                  onStreamChange={handleStreamChange}
-                />
-              </CardContent>
-            </Card>
-            
-            <div className="mt-3 text-xs text-vr-text/70 text-center">
-              {desktopStream 
-                ? "Desktop stream active - click to manage" 
-                : "Click to start desktop stream"}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="network">
-            <NetworkDisplayComponent
-              className="border-0"
-              onStreamReceived={handleNetworkStream}
-            />
-            
-            <div className="mt-3 text-xs text-vr-text/70 text-center">
-              {Object.keys(networkStreams).length > 0
-                ? `Connected to ${Object.keys(networkStreams).length} remote desktop(s)`
-                : "Connect to desktop on your local network"}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
       
       {/* Information panel */}
       <div className="absolute bottom-6 left-6 z-30 vr-panel p-4 max-w-md">
