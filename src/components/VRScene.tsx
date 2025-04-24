@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls } from '@react-three/drei';
+import { VRButton, XR, Controllers, Hands } from '@react-three/xr';
 import * as THREE from 'three';
 import { Perf } from 'r3f-perf';
 
@@ -13,7 +14,7 @@ interface VRSceneProps {
   enablePerformanceMonitor?: boolean;
 }
 
-// Component to configure scene environment
+// SceneSetup component
 const SceneSetup: React.FC<{ environmentBrightness: number }> = ({ environmentBrightness }) => {
   const { scene } = useThree();
   
@@ -70,38 +71,42 @@ const VRScene: React.FC<VRSceneProps> = ({
   
   return (
     <div className="absolute inset-0 vr-gradient-bg">
+      <VRButton className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50" />
       <Canvas shadows camera={{ position: [0, 1.7, 0], fov: 70 }}>
-        {/* Performance monitor for development */}
-        {enablePerformanceMonitor && <Perf position="top-left" />}
-        
-        {/* Scene environment */}
-        <SceneSetup environmentBrightness={environmentBrightness} />
-        
-        {/* Virtual screens */}
-        {screens.map((screen) => (
-          <VirtualScreen
-            key={screen.id}
-            position={screen.position}
-            width={screen.width}
-            height={screen.height}
-            name={screen.name}
+        <XR>
+          {/* Performance monitor for development */}
+          {enablePerformanceMonitor && <Perf position="top-left" />}
+          
+          {/* Scene environment */}
+          <SceneSetup environmentBrightness={environmentBrightness} />
+          
+          {/* Virtual screens */}
+          {screens.map((screen) => (
+            <VirtualScreen
+              key={screen.id}
+              position={screen.position}
+              width={screen.width}
+              height={screen.height}
+              name={screen.name}
+            />
+          ))}
+          
+          {/* VR Controllers and Hands */}
+          <Controllers />
+          <Hands />
+          
+          {/* Non-VR Camera controls */}
+          <OrbitControls 
+            target={[0, 1, -3]}
+            maxPolarAngle={Math.PI / 1.75}
+            minDistance={1}
+            maxDistance={20}
           />
-        ))}
-        
-        {/* Controllers */}
-        <VRController hand="left" position={[-0.5, 0, 0]} />
-        <VRController hand="right" position={[0.5, 0, 0]} />
-        
-        {/* Camera controls */}
-        <OrbitControls 
-          target={[0, 1, -3]}
-          maxPolarAngle={Math.PI / 1.75}
-          minDistance={1}
-          maxDistance={20}
-        />
+        </XR>
       </Canvas>
     </div>
   );
 };
 
 export default VRScene;
+
