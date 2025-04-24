@@ -31,18 +31,23 @@ const VRController: React.FC<VRControllerProps> = ({
       
       {/* Trigger button area */}
       <mesh position={[0, -0.025, -0.05]}>
-        <cylinderGeometry args={[0.01, 0.01, 0.02, 12]} rotation={[Math.PI / 2, 0, 0]} />
-        <meshStandardMaterial color="#ff4a4a" />
+        {/* Fixed: Removed incorrect rotation property from geometry */}
+        <cylinderGeometry args={[0.01, 0.01, 0.02, 12]} />
+        {/* Add rotation to the mesh instead */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <meshStandardMaterial color="#ff4a4a" />
+        </mesh>
       </mesh>
       
       {/* Controller ray for pointing */}
       {ray && (
         <group>
-          <mesh position={[0, 0, -2]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[0, 0, -2]}>
+            {/* Fixed: Moved rotation to mesh instead of geometry */}
             <cylinderGeometry args={[0.002, 0.002, 4, 8]} />
             <meshBasicMaterial color="#ffffff" opacity={0.5} transparent />
           </mesh>
-          <mesh position={[0, 0, -4]}>
+          <mesh position={[0, 0, -4]} rotation={[Math.PI / 2, 0, 0]}>
             <sphereGeometry args={[0.01, 16, 16]} />
             <meshBasicMaterial color="#ffffff" />
           </mesh>

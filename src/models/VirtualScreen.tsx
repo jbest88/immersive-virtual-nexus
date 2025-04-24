@@ -38,12 +38,16 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   }, [image]);
   
   useFrame(() => {
-    if (meshRef.current && isDragging) {
-      // Animation or effect when dragging
-      meshRef.current.material.opacity = 0.7;
-    } else if (meshRef.current) {
-      // Reset effect when not dragging
-      meshRef.current.material.opacity = hovered ? 0.95 : 0.9;
+    if (meshRef.current && meshRef.current.material) {
+      // Fix: Check if material is an array and ensure proper typing
+      const material = meshRef.current.material as THREE.Material & { opacity?: number };
+      
+      // Safely set opacity based on dragging and hover state
+      if (isDragging) {
+        material.opacity = 0.7;
+      } else {
+        material.opacity = hovered ? 0.95 : 0.9;
+      }
     }
   });
   
