@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Wifi, WifiOff, Monitor, RefreshCw, Link2 } from 'lucide-react';
+import { Wifi, WifiOff, Monitor, RefreshCw, Link2, Settings } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import webRTCService, { RemotePeer } from '@/services/webrtcService';
 
@@ -18,13 +18,16 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
   const [initialized, setInitialized] = useState(false);
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [signalingStatus, setSignalingStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
 
   // Initialize WebRTC service
   useEffect(() => {
     const initWebRTC = async () => {
       try {
+        setSignalingStatus('connecting');
         await webRTCService.initialize("VR-Client");
         setInitialized(true);
+        setSignalingStatus('connected');
         
         // Set up listener for peer updates
         const cleanupListener = webRTCService.addPeerListener((peers) => {
@@ -34,6 +37,7 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
         return cleanupListener;
       } catch (error) {
         console.error("Failed to initialize WebRTC:", error);
+        setSignalingStatus('disconnected');
         toast({
           title: "Connection Failed",
           description: "Could not initialize network connection",
@@ -53,6 +57,7 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
       // Clean up listener and all connections
       if (cleanupFunction) cleanupFunction();
       webRTCService.cleanup();
+      setSignalingStatus('disconnected');
     };
   }, []);
   
@@ -126,6 +131,33 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
         return <WifiOff className="h-4 w-4 text-gray-400" />;
     }
   };
+
+  // Get signaling server status
+  const getSignalingStatusElement = () => {
+    switch (signalingStatus) {
+      case 'connected':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <span className="text-green-500">Signaling Server Connected</span>
+          </div>
+        );
+      case 'connecting':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+            <span className="text-yellow-500">Connecting to Signaling Server</span>
+          </div>
+        );
+      case 'disconnected':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="text-red-500">Signaling Server Disconnected</span>
+          </div>
+        );
+    }
+  };
   
   return (
     <Card className={className}>
@@ -135,17 +167,29 @@ const NetworkDisplayComponent: React.FC<NetworkDisplayComponentProps> = ({
             <Link2 className="h-5 w-5" />
             Network Devices
           </span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-8 w-8 p-0" 
-            onClick={refreshPeers}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="sr-only">Refresh</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 w-8 p-0" 
+              onClick={refreshPeers}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="sr-only">Refresh</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Network Settings"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="sr-only">Settings</span>
+            </Button>
+          </div>
         </CardTitle>
+        {getSignalingStatusElement()}
       </CardHeader>
       <CardContent>
         {!initialized ? (

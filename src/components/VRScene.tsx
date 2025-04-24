@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Sky, Environment, OrbitControls } from '@react-three/drei';
@@ -8,6 +9,8 @@ import { Perf } from 'r3f-perf';
 import VirtualScreen from '../models/VirtualScreen';
 import screenCaptureService from '../services/screenCaptureService';
 import webRTCService from '../services/webrtcService';
+import NetworkDisplayComponent from './NetworkDisplayComponent';
+import { toast } from '@/components/ui/use-toast';
 
 interface VRSceneProps {
   environmentBrightness?: number;
@@ -74,6 +77,34 @@ const VRScene: React.FC<VRSceneProps> = ({
   
   // State to track active streams
   const [activeStreams, setActiveStreams] = useState<Map<number, MediaStream>>(new Map());
+  const [webrtcInitialized, setWebrtcInitialized] = useState(false);
+  
+  // Initialize WebRTC for remote screen streaming
+  useEffect(() => {
+    const initWebRTC = async () => {
+      try {
+        await webRTCService.initialize('VR-Client-Viewer');
+        setWebrtcInitialized(true);
+        
+        toast({
+          title: "Network Connected",
+          description: "Ready to receive desktop streams"
+        });
+      } catch (error) {
+        console.error("Failed to initialize WebRTC:", error);
+        toast({
+          title: "Network Error",
+          description: "Failed to connect to streaming network"
+        });
+      }
+    };
+    
+    initWebRTC();
+    
+    return () => {
+      webRTCService.cleanup();
+    };
+  }, []);
   
   // Handle stream assignment to a screen
   const assignStreamToScreen = (screenId: number, stream: MediaStream | null) => {
@@ -92,6 +123,8 @@ const VRScene: React.FC<VRSceneProps> = ({
   
   // Handle remote stream from WebRTC
   const handleRemoteStream = (peerId: string, stream: MediaStream | null) => {
+    console.log("Received remote stream:", peerId, stream ? "active" : "null");
+    
     // Find screen configured for remote display
     const remoteScreen = screens.find(s => s.sourceType === 'remote');
     if (remoteScreen) {
@@ -102,8 +135,16 @@ const VRScene: React.FC<VRSceneProps> = ({
       // Update the source ID if we have a new stream
       if (stream) {
         remoteScreen.sourceId = peerId;
+        toast({
+          title: "Stream Received",
+          description: `Desktop stream connected to ${remoteScreen.name}`
+        });
       } else if (remoteScreen.sourceId === peerId) {
         remoteScreen.sourceId = '';
+        toast({
+          title: "Stream Ended",
+          description: `Remote desktop stream disconnected`
+        });
       }
     }
   };
@@ -153,8 +194,15 @@ const VRScene: React.FC<VRSceneProps> = ({
         </XR>
       </Canvas>
       
+      {/* Network Display Component (hidden in VR mode) */}
+      <div className="absolute top-4 right-4 z-30 w-80 pointer-events-auto">
+        <NetworkDisplayComponent
+          onStreamReceived={handleRemoteStream}
+        />
+      </div>
+      
       {/* Screen Stream Control Panel (hidden in VR mode) */}
-      <div className="absolute top-20 left-6 z-30 vr-panel p-4 w-72 pointer-events-auto hidden md:block">
+      <div className="absolute top-4 left-4 z-30 vr-panel p-4 w-72 pointer-events-auto hidden md:block">
         <h3 className="text-lg font-semibold mb-3 text-vr-accent">Stream Control</h3>
         <p className="text-sm mb-3 text-vr-text/70">
           Select which monitor to stream to each virtual screen

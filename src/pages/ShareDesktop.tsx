@@ -4,41 +4,65 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
-import { Monitor, WifiOff, CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Monitor, WifiOff, CheckCircle, ArrowLeft, RefreshCw, Settings, Wifi, Link2 } from 'lucide-react';
+import webRTCService, { RemotePeer } from '@/services/webrtcService';
 
 const ShareDesktop = () => {
   const navigate = useNavigate();
   const [streamStatus, setStreamStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [screenName, setScreenName] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [signalingStatus, setSignalingStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   
   // Stream management
   const streamRef = useRef<MediaStream | null>(null);
   
-  // Peer management (simulated in this demo)
-  const [connectedClients, setConnectedClients] = useState<string[]>([]);
+  // Peer management
+  const [connectedClients, setConnectedClients] = useState<RemotePeer[]>([]);
   
-  // Simulate peer discovery
+  // Initialize WebRTC
   useEffect(() => {
-    if (streamStatus === 'connected') {
-      // Simulate discovering VR clients after a connection is established
-      const interval = setInterval(() => {
-        if (Math.random() > 0.7 && connectedClients.length < 3) {
-          const newClient = `VR-Client-${Math.floor(Math.random() * 100)}`;
-          if (!connectedClients.includes(newClient)) {
-            setConnectedClients(prev => [...prev, newClient]);
-            
-            toast({
-              title: "New Connection",
-              description: `${newClient} connected to your desktop`
-            });
-          }
-        }
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [streamStatus, connectedClients]);
+    const initWebRTC = async () => {
+      try {
+        setSignalingStatus('connecting');
+        
+        // Initialize WebRTC service with a descriptive name
+        await webRTCService.initialize(`Desktop-${Math.floor(Math.random() * 1000)}`);
+        
+        setSignalingStatus('connected');
+        
+        // Add listener for connected peers
+        const cleanupListener = webRTCService.addPeerListener((peers) => {
+          // Filter for connected peers only
+          setConnectedClients(peers.filter(p => p.connectionState === 'connected'));
+        });
+        
+        return cleanupListener;
+      } catch (error) {
+        console.error("Failed to initialize WebRTC:", error);
+        setSignalingStatus('disconnected');
+        toast({
+          title: "Connection Failed",
+          description: "Could not initialize network connection",
+          variant: "destructive"
+        });
+        return () => {};
+      }
+    };
+    
+    let cleanupFunction: (() => void) | undefined;
+    
+    initWebRTC().then(cleanup => {
+      cleanupFunction = cleanup;
+    });
+    
+    return () => {
+      // Clean up
+      if (cleanupFunction) cleanupFunction();
+      webRTCService.cleanup();
+      stopCapture();
+    };
+  }, []);
   
   // Start screen capture
   const startCapture = async () => {
@@ -67,6 +91,20 @@ const ShareDesktop = () => {
       };
       
       setStreamStatus('connected');
+      
+      // Share with all currently connected clients
+      await Promise.all(connectedClients.map(async client => {
+        try {
+          await webRTCService.shareStreamWithPeer(client.id, stream);
+          
+          toast({
+            title: "Stream Shared",
+            description: `Your desktop is now being shared with ${client.name}`
+          });
+        } catch (error) {
+          console.error(`Failed to share with ${client.name}:`, error);
+        }
+      }));
       
       toast({
         title: "Broadcasting Started",
@@ -97,17 +135,58 @@ const ShareDesktop = () => {
     }
     
     setStreamStatus('idle');
-    setConnectedClients([]);
   };
   
   // Disconnect a specific client
   const disconnectClient = (clientId: string) => {
-    setConnectedClients(prev => prev.filter(id => id !== clientId));
+    webRTCService.disconnectFromPeer(clientId);
     
     toast({
       title: "Client Disconnected",
-      description: `Disconnected ${clientId} from your desktop`
+      description: `Disconnected client from your desktop`
     });
+  };
+  
+  // Refresh the peer connection
+  const refreshPeers = async () => {
+    try {
+      // Re-initialize WebRTC to refresh connections
+      await webRTCService.initialize(`Desktop-${Math.floor(Math.random() * 1000)}`);
+      
+      toast({
+        title: "Network Refreshed",
+        description: "Looking for new VR clients on the network"
+      });
+    } catch (error) {
+      console.error("Failed to refresh:", error);
+    }
+  };
+  
+  // Get signaling server status indicator
+  const getSignalingStatusElement = () => {
+    switch (signalingStatus) {
+      case 'connected':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <span className="text-green-500">Signaling Server Connected</span>
+          </div>
+        );
+      case 'connecting':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+            <span className="text-yellow-500">Connecting to Signaling Server</span>
+          </div>
+        );
+      case 'disconnected':
+        return (
+          <div className="flex items-center gap-1 text-xs">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="text-red-500">Signaling Server Disconnected</span>
+          </div>
+        );
+    }
   };
   
   return (
@@ -128,16 +207,27 @@ const ShareDesktop = () => {
           <div className="md:col-span-2">
             <Card className="vr-panel h-full">
               <CardHeader>
-                <CardTitle className="text-vr-accent">Desktop Preview</CardTitle>
+                <CardTitle className="text-vr-accent flex justify-between items-center">
+                  <span>Desktop Preview</span>
+                  {getSignalingStatusElement()}
+                </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
                 {streamStatus === 'idle' && (
                   <div className="h-64 md:h-80 flex flex-col items-center justify-center bg-vr-primary/5 rounded border border-dashed border-vr-primary/30">
                     <Monitor className="h-12 w-12 mb-4 text-vr-accent/50" />
                     <p className="text-vr-text/70 mb-6">Click below to share your desktop</p>
-                    <Button onClick={startCapture}>
+                    <Button 
+                      onClick={startCapture}
+                      disabled={signalingStatus !== 'connected'}
+                    >
                       Start Broadcasting
                     </Button>
+                    {signalingStatus !== 'connected' && (
+                      <p className="text-xs text-red-400 mt-2">
+                        Connect to signaling server first
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -193,47 +283,47 @@ const ShareDesktop = () => {
           <div>
             <Card className="vr-panel h-full">
               <CardHeader>
-                <CardTitle className="text-vr-accent">Connected Clients</CardTitle>
+                <CardTitle className="text-vr-accent flex items-center justify-between">
+                  <span>Connected Clients</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 w-8 p-0" 
+                    onClick={refreshPeers}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="sr-only">Refresh</span>
+                  </Button>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {connectedClients.length === 0 ? (
                   <div className="h-40 flex flex-col items-center justify-center text-center border-dashed border rounded border-vr-primary/30 p-4">
                     <WifiOff className="h-8 w-8 mb-2 text-vr-text/30" />
                     <p className="text-vr-text/50 text-sm">
-                      {streamStatus === 'connected' 
+                      {signalingStatus === 'connected' 
                         ? "Waiting for VR clients to connect..."
-                        : "Start broadcasting to allow connections"}
+                        : "Connect to network to allow connections"}
                     </p>
-                    {streamStatus === 'connected' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-4"
-                        onClick={() => {
-                          toast({
-                            title: "Scanning for Clients",
-                            description: "Looking for VR clients on the network"
-                          });
-                        }}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Scan Network
-                      </Button>
+                    {streamStatus === 'connected' && signalingStatus === 'connected' && (
+                      <p className="text-xs text-vr-text/50 mt-2">
+                        Share your broadcast code with VR clients
+                      </p>
                     )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {connectedClients.map(client => (
-                      <div key={client} className="flex items-center justify-between p-2 bg-vr-primary/10 rounded">
+                      <div key={client.id} className="flex items-center justify-between p-2 bg-vr-primary/10 rounded">
                         <div className="flex items-center">
                           <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
-                          <span className="text-sm">{client}</span>
+                          <span className="text-sm">{client.name}</span>
                         </div>
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           className="h-8 w-8 p-0"
-                          onClick={() => disconnectClient(client)}
+                          onClick={() => disconnectClient(client.id)}
                         >
                           <WifiOff className="h-4 w-4 text-red-400" />
                           <span className="sr-only">Disconnect</span>
@@ -265,6 +355,18 @@ const ShareDesktop = () => {
                       <span>Clients:</span>
                       <span className="font-medium text-vr-text">{connectedClients.length}</span>
                     </div>
+                    <div className="flex items-center justify-between">
+                      <span>Signaling:</span>
+                      <span className={`font-medium ${
+                        signalingStatus === 'connected' 
+                          ? 'text-green-400' 
+                          : signalingStatus === 'connecting' 
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
+                      }`}>
+                        {signalingStatus.charAt(0).toUpperCase() + signalingStatus.slice(1)}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 
@@ -274,6 +376,22 @@ const ShareDesktop = () => {
                   onClick={() => navigate('/guide')}
                 >
                   View Connection Guide
+                </Button>
+                
+                <Button 
+                  variant="ghost"
+                  size="sm"
+                  className="w-full flex items-center justify-center"
+                  onClick={() => {
+                    // Open a dialog or page where users can configure network settings
+                    toast({
+                      title: "Network Settings",
+                      description: "Configure your network connection parameters"
+                    });
+                  }}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Network Settings
                 </Button>
               </CardFooter>
             </Card>
