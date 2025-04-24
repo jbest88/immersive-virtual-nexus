@@ -1,8 +1,8 @@
-
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { useVRInteraction } from '../hooks/useVRInteraction';
 
 interface VirtualScreenProps {
   position: [number, number, number];
@@ -27,6 +27,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState<[number, number, number]>(position);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
@@ -72,7 +73,34 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
       videoTextureRef.current.needsUpdate = true;
     }
   });
-  
+
+  const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
+    if (meshRef.current) {
+      const screenPosition = meshRef.current.position;
+      const offset = new THREE.Vector3().subVectors(screenPosition, controllerPosition);
+      meshRef.current.userData.offset = offset;
+    }
+  };
+
+  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3) => {
+    if (meshRef.current && meshRef.current.userData.offset) {
+      const newPosition = new THREE.Vector3()
+        .addVectors(controllerPosition, meshRef.current.userData.offset);
+      
+      meshRef.current.position.copy(newPosition);
+      setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
+      onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
+    }
+  };
+
+  const handleRelease = () => {
+    if (meshRef.current) {
+      meshRef.current.userData.offset = null;
+    }
+  };
+
+  useVRInteraction(handleGrab, handleRelease, handleMove);
+
   // Use memoized values for material properties
   const materialProps = useMemo(() => ({
     color: hovered ? "#ffffff" : "#f0f0f0",
@@ -80,13 +108,9 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     transparent: true,
     map: texture || undefined
   }), [hovered, isDragging, texture]);
-  
-  // Handle pointer events directly
-  const handlePointerOver = () => setHovered(true);
-  const handlePointerOut = () => setHovered(false);
-  
+
   return (
-    <group position={position}>
+    <group position={currentPosition}>
       {/* Screen name label */}
       <Text
         position={[0, height / 2 + 0.3, 0]}
@@ -101,19 +125,19 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
       {/* Actual screen */}
       <mesh 
         ref={meshRef}
-        onPointerOver={handlePointerOver}
-        onPointerOut={handlePointerOut}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
       >
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial {...materialProps} />
       </mesh>
       
-      {/* Glow effect around the edges when hovered */}
-      {hovered && (
+      {/* Glow effect around the edges when hovered or being moved */}
+      {(hovered || isDragging) && (
         <mesh position={[0, 0, -0.01]}>
           <planeGeometry args={[width + 0.1, height + 0.1]} />
           <meshBasicMaterial 
-            color="#4a68ff" 
+            color={isDragging ? "#4aff68" : "#4a68ff"} 
             opacity={0.4} 
             transparent={true} 
           />
