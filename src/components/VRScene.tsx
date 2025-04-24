@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Sky, Environment, OrbitControls, Plane } from '@react-three/drei';
+import { Sky, Environment, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { Perf } from 'r3f-perf';
 
@@ -39,18 +39,15 @@ const SceneSetup: React.FC<{ environmentBrightness: number }> = ({ environmentBr
       <Environment preset="night" background={false} />
       
       {/* Floor grid */}
-      <Plane
-        args={[100, 100]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -3, 0]}
-      >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]}>
+        <planeGeometry args={[100, 100]} />
         <meshStandardMaterial 
           color="#1a1a4a" 
           opacity={0.6} 
-          transparent
-          wireframe 
+          transparent={true}
+          wireframe={true} 
         />
-      </Plane>
+      </mesh>
     </>
   );
 };
@@ -59,7 +56,7 @@ const VRScene: React.FC<VRSceneProps> = ({
   environmentBrightness = 0.7,
   enablePerformanceMonitor = false,
 }) => {
-  // Explicitly type the screens array to ensure proper position typing
+  // Setup virtual screen data
   const [screens] = useState<Array<{
     id: number;
     position: [number, number, number];

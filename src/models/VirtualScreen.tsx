@@ -1,7 +1,7 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Plane, Text } from '@react-three/drei';
+import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface VirtualScreenProps {
@@ -37,21 +37,25 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     }
   }, [image]);
   
-  // Safely update material opacity based on state
+  // Use memoized values for material properties
+  const materialProps = useMemo(() => ({
+    color: hovered ? "#ffffff" : "#f0f0f0",
+    opacity: isDragging ? 0.7 : (hovered ? 0.95 : 0.9),
+    transparent: true,
+    map: texture || undefined
+  }), [hovered, isDragging, texture]);
+  
+  // Safe material updates
   useFrame(() => {
-    if (meshRef.current && meshRef.current.material) {
-      const material = meshRef.current.material as THREE.MeshBasicMaterial;
-      if (material && typeof material.opacity !== 'undefined') {
-        material.opacity = isDragging ? 0.7 : (hovered ? 0.95 : 0.9);
-      }
-    }
+    if (!meshRef.current) return;
   });
   
-  // Extract individual position components to avoid direct array passing
-  const [x, y, z] = position;
+  // Handle pointer events directly
+  const handlePointerOver = () => setHovered(true);
+  const handlePointerOut = () => setHovered(false);
   
   return (
-    <group position={[x, y, z]}>
+    <group position={position}>
       {/* Screen name label */}
       <Text
         position={[0, height / 2 + 0.3, 0]}
@@ -64,29 +68,25 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
       </Text>
       
       {/* Actual screen */}
-      <Plane
+      <mesh 
         ref={meshRef}
-        args={[width, height]}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
+        onPointerOver={handlePointerOver}
+        onPointerOut={handlePointerOut}
       >
-        <meshBasicMaterial 
-          color={hovered ? "#ffffff" : "#f0f0f0"}
-          opacity={0.9} 
-          transparent 
-          map={texture || undefined}
-        />
-      </Plane>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial {...materialProps} />
+      </mesh>
       
       {/* Glow effect around the edges when hovered */}
       {hovered && (
-        <Plane args={[width + 0.1, height + 0.1]} position={[0, 0, -0.01]}>
+        <mesh position={[0, 0, -0.01]}>
+          <planeGeometry args={[width + 0.1, height + 0.1]} />
           <meshBasicMaterial 
             color="#4a68ff" 
             opacity={0.4} 
-            transparent 
+            transparent={true} 
           />
-        </Plane>
+        </mesh>
       )}
     </group>
   );
