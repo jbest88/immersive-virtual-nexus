@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
@@ -27,7 +28,9 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  const [grabbed, setGrabbed] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<[number, number, number]>(position);
+  const [currentSize, setCurrentSize] = useState<{width: number, height: number}>({ width, height });
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
@@ -76,14 +79,15 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
-      const screenPosition = meshRef.current.position;
+      const screenPosition = meshRef.current.position.clone();
       const offset = new THREE.Vector3().subVectors(screenPosition, controllerPosition);
       meshRef.current.userData.offset = offset;
+      setGrabbed(true);
     }
   };
 
   const handleMove = (controllerId: string, controllerPosition: THREE.Vector3) => {
-    if (meshRef.current && meshRef.current.userData.offset) {
+    if (meshRef.current && meshRef.current.userData.offset && grabbed) {
       const newPosition = new THREE.Vector3()
         .addVectors(controllerPosition, meshRef.current.userData.offset);
       
@@ -93,27 +97,45 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     }
   };
 
-  const handleRelease = () => {
+  const handleRelease = (controllerId: string) => {
     if (meshRef.current) {
       meshRef.current.userData.offset = null;
+      setGrabbed(false);
     }
   };
 
-  useVRInteraction(handleGrab, handleRelease, handleMove);
+  const handleJoystickMove = (controllerId: string, joystickValue: number) => {
+    // Use joystick for resizing
+    // Positive values (pushing forward) make the screen bigger
+    // Negative values (pulling back) make the screen smaller
+    const resizeFactor = 1 + (joystickValue * 0.03); // Scale the effect
+    
+    setCurrentSize(prevSize => {
+      const newWidth = Math.max(4, Math.min(30, prevSize.width * resizeFactor));
+      const newHeight = Math.max(3, Math.min(20, prevSize.height * resizeFactor));
+      
+      return {
+        width: newWidth,
+        height: newHeight
+      };
+    });
+  };
+
+  useVRInteraction(handleGrab, handleRelease, handleMove, handleJoystickMove);
 
   // Use memoized values for material properties
   const materialProps = useMemo(() => ({
     color: hovered ? "#ffffff" : "#f0f0f0",
-    opacity: isDragging ? 0.7 : (hovered ? 0.95 : 0.9),
+    opacity: isDragging || grabbed ? 0.7 : (hovered ? 0.95 : 0.9),
     transparent: true,
     map: texture || undefined
-  }), [hovered, isDragging, texture]);
+  }), [hovered, isDragging, grabbed, texture]);
 
   return (
     <group position={currentPosition}>
       {/* Screen name label */}
       <Text
-        position={[0, height / 2 + 0.3, 0]}
+        position={[0, currentSize.height / 2 + 0.3, 0]}
         fontSize={0.3}
         color="#ffffff"
         anchorX="center"
@@ -128,20 +150,35 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
-        <planeGeometry args={[width, height]} />
+        <planeGeometry args={[currentSize.width, currentSize.height]} />
         <meshBasicMaterial {...materialProps} />
       </mesh>
       
-      {/* Glow effect around the edges when hovered or being moved */}
-      {(hovered || isDragging) && (
+      {/* Glow effect around the edges when hovered, grabbed or being moved */}
+      {(hovered || isDragging || grabbed) && (
         <mesh position={[0, 0, -0.01]}>
-          <planeGeometry args={[width + 0.1, height + 0.1]} />
+          <planeGeometry args={[currentSize.width + 0.1, currentSize.height + 0.1]} />
           <meshBasicMaterial 
-            color={isDragging ? "#4aff68" : "#4a68ff"} 
+            color={grabbed ? "#4aff68" : (isDragging ? "#4aff68" : "#4a68ff")}
             opacity={0.4} 
             transparent={true} 
           />
         </mesh>
+      )}
+
+      {/* Resize indicators when grabbed */}
+      {grabbed && (
+        <>
+          <Text
+            position={[0, currentSize.height / 2 + 0.8, 0]}
+            fontSize={0.25}
+            color="#4aff68"
+            anchorX="center"
+            anchorY="bottom"
+          >
+            Push joystick forward/back to resize
+          </Text>
+        </>
       )}
     </group>
   );
