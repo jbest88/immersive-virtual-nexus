@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useXR, XRController } from '@react-three/xr';
 import { useFrame } from '@react-three/fiber';
 import { Vector3, Quaternion } from 'three';
