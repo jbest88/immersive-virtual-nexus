@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useXR, XRController } from '@react-three/xr';
 import { useFrame } from '@react-three/fiber';
 import { Vector3, Quaternion } from 'three';
@@ -18,7 +18,7 @@ export const useVRInteraction = (
   const forwardDirection = useRef<Vector3>(new Vector3());
 
   // Create stable callback references
-  const handleControllerGrip = useCallback((controller: XRController, isGrip: boolean) => {
+  const handleControllerGrip = React.useCallback((controller: XRController, isGrip: boolean) => {
     if (!controller) return;
     
     const controllerId = String(controller.id);
@@ -36,6 +36,8 @@ export const useVRInteraction = (
   useEffect(() => {
     if (!controllers || controllers.length === 0) return;
     
+    const cleanupFns: (() => void)[] = [];
+    
     // Add event listeners
     controllers.forEach(controller => {
       if (controller && controller.grip) {
@@ -45,14 +47,19 @@ export const useVRInteraction = (
         controller.grip.addEventListener('squeezestart', gripStart);
         controller.grip.addEventListener('squeezeend', gripEnd);
         
-        return () => {
+        cleanupFns.push(() => {
           if (controller && controller.grip) {
             controller.grip.removeEventListener('squeezestart', gripStart);
             controller.grip.removeEventListener('squeezeend', gripEnd);
           }
-        };
+        });
       }
     });
+    
+    // Return cleanup function
+    return () => {
+      cleanupFns.forEach(fn => fn());
+    };
   }, [controllers, handleControllerGrip]);
 
   // Track joystick movement and button presses

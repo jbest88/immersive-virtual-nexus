@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useXR, useController } from '@react-three/xr';
 import * as THREE from 'three';
@@ -21,8 +21,8 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
   const grabOffset = useRef(new THREE.Vector3());
   const pullOffset = useRef(new THREE.Vector3());
   
-  // Define event handlers with useCallback to maintain reference stability
-  const handleSqueezeStart = useCallback(() => {
+  // Handle squeeze start event
+  const handleSqueezeStart = React.useCallback(() => {
     if (!controller || !mesh.current) return;
 
     const ctrlPos = new THREE.Vector3();
@@ -34,11 +34,12 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
     grabOffset.current.copy(objPos.sub(ctrlPos));
     pullOffset.current.set(0, 0, 0);
     setIsGripped(true);
-  }, [controller]);
+  }, [controller]); // Only depend on controller
 
-  const handleSqueezeEnd = useCallback(() => {
+  // Handle squeeze end event
+  const handleSqueezeEnd = React.useCallback(() => {
     setIsGripped(false);
-  }, []);
+  }, []); // No dependencies needed
 
   // Setup the controller event listeners
   useEffect(() => {
