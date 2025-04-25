@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
@@ -31,7 +32,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const [currentPosition, setCurrentPosition] = useState<[number, number, number]>(position);
   const [currentSize] = useState<{width: number, height: number}>({ width, height });
   const grabOffsetRef = useRef<THREE.Vector3 | null>(null);
-  const initialDistanceRef = useRef<number | null>(null);
+  const controllerPosRef = useRef<THREE.Vector3>(new THREE.Vector3());
 
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
@@ -84,33 +85,41 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
       setGrabbed(true);
       // Store the offset between the controller and screen when grabbing
       grabOffsetRef.current = meshRef.current.position.clone().sub(controllerPosition);
-      // Store initial distance for push/pull reference
-      initialDistanceRef.current = meshRef.current.position.distanceTo(controllerPosition);
+      // Store the controller position for reference
+      controllerPosRef.current.copy(controllerPosition);
     }
   };
 
   const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, pushPull: number) => {
-    if (meshRef.current && grabbed && grabOffsetRef.current && initialDistanceRef.current) {
-      // Calculate new position based on controller movement
+    if (meshRef.current && grabbed && grabOffsetRef.current) {
+      // Calculate new position based on controller's physical movement (natural manipulation)
       const newPosition = controllerPosition.clone().add(grabOffsetRef.current);
       
-      // Apply push/pull along the view direction
+      // Apply push/pull along the view direction if joystick input received
       if (pushPull !== 0) {
+        // Create a vector pointing from controller to screen
         const viewDirection = new THREE.Vector3().subVectors(
           meshRef.current.position,
           controllerPosition
         ).normalize();
+        
+        // Apply push/pull force along that direction
         newPosition.add(viewDirection.multiplyScalar(pushPull));
       }
 
+      // Update position
       meshRef.current.position.copy(newPosition);
       setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
+      
+      // Update position in parent if callback provided
       onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
 
-      // Make the screen face the controller
-      const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
-      direction.y = 0; // Keep the screen vertical
-      meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
+      // Make the screen face the controller (look at controller)
+      if (controllerPosition) {
+        const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
+        direction.y = 0; // Keep the screen vertical by zeroing Y component
+        meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
+      }
     }
   };
 
@@ -118,7 +127,6 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     if (meshRef.current) {
       setGrabbed(false);
       grabOffsetRef.current = null;
-      initialDistanceRef.current = null;
     }
   };
 
@@ -177,7 +185,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
           anchorX="center"
           anchorY="bottom"
         >
-          Use joystick to move screen
+          Use joystick to push/pull screen
         </Text>
       )}
     </group>

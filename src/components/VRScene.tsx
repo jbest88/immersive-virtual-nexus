@@ -11,6 +11,7 @@ import screenCaptureService from '../services/screenCaptureService';
 import webRTCService from '../services/webrtcService';
 import NetworkDisplayComponent from './NetworkDisplayComponent';
 import { toast } from '@/components/ui/use-toast';
+import { useVRInteraction } from '../hooks/useVRInteraction';
 
 interface VRSceneProps {
   environmentBrightness?: number;
@@ -56,8 +57,8 @@ const SceneSetup: React.FC<{ environmentBrightness: number }> = ({ environmentBr
   );
 };
 
-// VR Session Detection
-const VRSessionDetection = () => {
+// VR Session Detection with Menu Controls
+const VRSessionDetection = ({ toggleMenu }: { toggleMenu: () => void }) => {
   const { isPresenting } = useXR();
   
   useEffect(() => {
@@ -65,10 +66,21 @@ const VRSessionDetection = () => {
       console.log("VR Session started");
       toast({
         title: "VR Mode Activated",
-        description: "You are now in VR mode. Use controllers to interact."
+        description: "Use B button to toggle the menu. Use controllers to interact with screens."
       });
     }
   }, [isPresenting]);
+  
+  // Setup button handling for menu toggle
+  const handleButtonPress = (controllerId: string, buttonName: string) => {
+    console.log(`Button pressed in VR: ${buttonName}`);
+    if (buttonName === 'B') {
+      console.log("B button pressed - toggling menu");
+      toggleMenu();
+    }
+  };
+  
+  useVRInteraction(undefined, undefined, undefined, handleButtonPress);
   
   return null;
 };
@@ -97,6 +109,18 @@ const VRScene: React.FC<VRSceneProps> = ({
   const [webrtcInitialized, setWebrtcInitialized] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const vrButtonRef = useRef<HTMLButtonElement>(null);
+  const [showVRMenu, setShowVRMenu] = useState(false);
+  
+  // Toggle VR menu function for button press
+  const toggleVRMenu = () => {
+    console.log("Toggling VR menu visibility:", !showVRMenu);
+    setShowVRMenu(prev => !prev);
+    
+    toast({
+      title: showVRMenu ? "Menu Hidden" : "Menu Shown",
+      description: showVRMenu ? "Menu is now hidden" : "Use controller to interact with menu"
+    });
+  };
   
   // Initialize WebRTC for remote screen streaming
   useEffect(() => {
@@ -227,8 +251,8 @@ const VRScene: React.FC<VRSceneProps> = ({
       
       <Canvas shadows camera={{ position: [0, 1.7, 0], fov: 70 }}>
         <XR>
-          {/* VR Session Detection */}
-          <VRSessionDetection />
+          {/* VR Session Detection with Menu Toggle */}
+          <VRSessionDetection toggleMenu={toggleVRMenu} />
           
           {/* Performance monitor for development */}
           {enablePerformanceMonitor && <Perf position="top-left" />}
@@ -247,6 +271,52 @@ const VRScene: React.FC<VRSceneProps> = ({
               videoStream={activeStreams.get(screen.id) || null}
             />
           ))}
+          
+          {/* VR Menu (will be displayed in 3D space when toggled) */}
+          {showVRMenu && (
+            <group position={[0, 1.5, -1]}>
+              <mesh position={[0, 0, 0]}>
+                <planeGeometry args={[1, 0.6]} />
+                <meshBasicMaterial color="#112244" opacity={0.8} transparent />
+              </mesh>
+              <Text
+                position={[0, 0.2, 0.01]}
+                fontSize={0.05}
+                color="#ffffff"
+                anchorX="center"
+                anchorY="middle"
+              >
+                VR Menu
+              </Text>
+              <Text
+                position={[0, 0.1, 0.01]}
+                fontSize={0.03}
+                color="#aaddff"
+                anchorX="center"
+                anchorY="middle"
+              >
+                Grip screens to move them
+              </Text>
+              <Text
+                position={[0, 0, 0.01]}
+                fontSize={0.03}
+                color="#aaddff"
+                anchorX="center"
+                anchorY="middle"
+              >
+                Use joystick to push/pull
+              </Text>
+              <Text
+                position={[0, -0.1, 0.01]}
+                fontSize={0.03}
+                color="#aaddff"
+                anchorX="center"
+                anchorY="middle"
+              >
+                Press B again to close menu
+              </Text>
+            </group>
+          )}
           
           {/* VR Controllers and Hands */}
           <Controllers />
