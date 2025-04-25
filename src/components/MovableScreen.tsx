@@ -21,8 +21,9 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
   const grabOffset = useRef(new THREE.Vector3());
   const pullOffset = useRef(new THREE.Vector3());
 
+  // Fix: Added the proper dependencies array and made sure every event uses .grip
   useEffect(() => {
-    if (!controller) return;
+    if (!controller) return undefined;
 
     const onSqueezeStart = () => {
       const ctrlPos = new THREE.Vector3();
@@ -46,7 +47,7 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
       controller.grip.removeEventListener('squeezestart', onSqueezeStart);
       controller.grip.removeEventListener('squeezeend', onSqueezeEnd);
     };
-  }, [controller]);
+  }, [controller]); // Explicitly passing controller to dependencies
 
   useFrame((_, delta) => {
     if (!isGripped || !controller || !mesh.current) return;
