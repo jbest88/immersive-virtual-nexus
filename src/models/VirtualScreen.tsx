@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
@@ -79,49 +78,37 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
-      console.log("Screen grabbed with controller", controllerId);
       const screenPosition = meshRef.current.position.clone();
-      const offset = new THREE.Vector3().subVectors(screenPosition, controllerPosition);
-      meshRef.current.userData.offset = offset;
+      meshRef.current.userData.grabOffset = screenPosition.sub(controllerPosition);
       setGrabbed(true);
     }
   };
 
   const handleMove = (controllerId: string, controllerPosition: THREE.Vector3) => {
-    if (meshRef.current && meshRef.current.userData.offset && grabbed) {
-      const newPosition = new THREE.Vector3()
-        .addVectors(controllerPosition, meshRef.current.userData.offset);
-      
+    if (meshRef.current && grabbed) {
+      const newPosition = controllerPosition.clone().add(meshRef.current.userData.grabOffset);
       meshRef.current.position.copy(newPosition);
       setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
       onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
     }
   };
 
-  const handleRelease = (controllerId: string) => {
-    console.log("Screen released from controller", controllerId);
+  const handleRelease = () => {
     if (meshRef.current) {
-      meshRef.current.userData.offset = null;
+      meshRef.current.userData.grabOffset = null;
       setGrabbed(false);
     }
   };
 
-  const handleJoystickMove = (controllerId: string, joystickValue: number) => {
-    // Use joystick for resizing
-    // Positive values (pushing forward) make the screen bigger
-    // Negative values (pulling back) make the screen smaller
-    const resizeFactor = 1 + (joystickValue * 0.03); // Scale the effect
-    console.log(`Joystick input: ${joystickValue}, applying resize factor: ${resizeFactor}`);
-    
-    setCurrentSize(prevSize => {
-      const newWidth = Math.max(4, Math.min(30, prevSize.width * resizeFactor));
-      const newHeight = Math.max(3, Math.min(20, prevSize.height * resizeFactor));
-      
-      return {
-        width: newWidth,
-        height: newHeight
-      };
-    });
+  const handleJoystickMove = (controllerId: string, x: number, y: number) => {
+    if (grabbed) {
+      // Use X axis for width and Y axis for height scaling
+      const scaleSpeed = 0.05;
+      setCurrentSize(prev => ({
+        width: Math.max(4, Math.min(30, prev.width * (1 + x * scaleSpeed))),
+        height: Math.max(3, Math.min(20, prev.height * (1 - y * scaleSpeed)))
+      }));
+    }
   };
 
   useVRInteraction(handleGrab, handleRelease, handleMove, handleJoystickMove);
