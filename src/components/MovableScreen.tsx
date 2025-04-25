@@ -21,11 +21,12 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
   const grabOffset = useRef(new THREE.Vector3());
   const pullOffset = useRef(new THREE.Vector3());
 
-  // Fix: Added the proper dependencies array and made sure every event uses .grip
+  // Setup the controller event listeners
   useEffect(() => {
-    if (!controller) return undefined;
+    // Exit early if controller doesn't exist
+    if (!controller) return;
 
-    const onSqueezeStart = () => {
+    const handleSqueezeStart = () => {
       const ctrlPos = new THREE.Vector3();
       controller.controller.getWorldPosition(ctrlPos);
       const objPos = new THREE.Vector3();
@@ -35,34 +36,44 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
       setIsGripped(true);
     };
 
-    const onSqueezeEnd = () => {
+    const handleSqueezeEnd = () => {
       setIsGripped(false);
     };
 
-    // Using grip instead of controller directly to access the XR events
-    controller.grip.addEventListener('squeezestart', onSqueezeStart);
-    controller.grip.addEventListener('squeezeend', onSqueezeEnd);
+    // Add event listeners
+    const gripElement = controller.grip;
+    gripElement.addEventListener('squeezestart', handleSqueezeStart);
+    gripElement.addEventListener('squeezeend', handleSqueezeEnd);
     
+    // Cleanup function to remove event listeners
     return () => {
-      controller.grip.removeEventListener('squeezestart', onSqueezeStart);
-      controller.grip.removeEventListener('squeezeend', onSqueezeEnd);
+      gripElement.removeEventListener('squeezestart', handleSqueezeStart);
+      gripElement.removeEventListener('squeezeend', handleSqueezeEnd);
     };
-  }, [controller]); // Explicitly passing controller to dependencies
+  // Explicit dependency array for the controller
+  }, [controller]);
 
+  // Handle controller movement and screen positioning
   useFrame((_, delta) => {
     if (!isGripped || !controller || !mesh.current) return;
 
     // Handle joystick push/pull
-    const gp = controller.inputSource?.gamepad;
-    if (gp?.axes) {
-      const raw = gp.axes[3] ?? gp.axes[1];
-      const deadzone = 0.15;
-      if (Math.abs(raw) > deadzone) {
-        // Using controller.controller.quaternion instead of targetRaySpace
-        const forward = new THREE.Vector3(0, 0, -1)
-          .applyQuaternion(controller.controller.quaternion);
-        const speed = 1.5;
-        pullOffset.current.addScaledVector(forward, raw * speed * delta);
+    if (controller.inputSource?.gamepad) {
+      const gp = controller.inputSource.gamepad;
+      // Safely check if axes exist and have enough elements
+      if (gp.axes && gp.axes.length > 0) {
+        // Use index 3 if available (primary axis), otherwise fall back to index 1
+        const axisIndex = (gp.axes.length > 3) ? 3 : (gp.axes.length > 1 ? 1 : 0);
+        const raw = gp.axes[axisIndex];
+        const deadzone = 0.15;
+        
+        if (Math.abs(raw) > deadzone) {
+          // Calculate forward direction from controller orientation
+          const forward = new THREE.Vector3(0, 0, -1)
+            .applyQuaternion(controller.controller.quaternion);
+          const speed = 1.5;
+          pullOffset.current.addScaledVector(forward, raw * speed * delta);
+        }
       }
     }
 
