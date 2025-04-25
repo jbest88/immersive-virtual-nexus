@@ -38,12 +38,13 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
       setIsGripped(false);
     };
 
-    controller.addEventListener('squeezestart', onSqueezeStart);
-    controller.addEventListener('squeezeend', onSqueezeEnd);
+    // Using grip instead of controller directly to access the XR events
+    controller.grip.addEventListener('squeezestart', onSqueezeStart);
+    controller.grip.addEventListener('squeezeend', onSqueezeEnd);
     
     return () => {
-      controller.removeEventListener('squeezestart', onSqueezeStart);
-      controller.removeEventListener('squeezeend', onSqueezeEnd);
+      controller.grip.removeEventListener('squeezestart', onSqueezeStart);
+      controller.grip.removeEventListener('squeezeend', onSqueezeEnd);
     };
   }, [controller]);
 
@@ -56,8 +57,9 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
       const raw = gp.axes[3] ?? gp.axes[1];
       const deadzone = 0.15;
       if (Math.abs(raw) > deadzone) {
+        // Using controller.controller.quaternion instead of targetRaySpace
         const forward = new THREE.Vector3(0, 0, -1)
-          .applyQuaternion(controller.targetRaySpace.quaternion);
+          .applyQuaternion(controller.controller.quaternion);
         const speed = 1.5;
         pullOffset.current.addScaledVector(forward, raw * speed * delta);
       }
@@ -89,3 +91,4 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
 
   return <group ref={mesh}>{children}</group>;
 };
+
