@@ -2,12 +2,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useXR, XRController } from '@react-three/xr';
 import { useFrame } from '@react-three/fiber';
-import { Vector3 } from 'three';
+import { Vector3, Quaternion } from 'three';
 
 export const useVRInteraction = (
-  onGrab?: (controllerId: string, position: Vector3) => void,
+  onGrab?: (controllerId: string, position: Vector3, quaternion: Quaternion) => void,
   onRelease?: (controllerId: string) => void,
-  onMove?: (controllerId: string, position: Vector3, pushPull: number) => void,
+  onMove?: (controllerId: string, position: Vector3, pushPull: number, delta: number, quaternion: Quaternion) => void,
   onButtonPress?: (controllerId: string, buttonName: string) => void,
 ) => {
   const { controllers } = useXR();
@@ -22,7 +22,7 @@ export const useVRInteraction = (
     const handleControllerEvent = (controller: XRController, isGrip: boolean) => {
       if (isGrip) {
         setActiveController(String(controller.id));
-        onGrab?.(String(controller.id), controller.controller.position);
+        onGrab?.(String(controller.id), controller.controller.position, controller.controller.quaternion);
       } else if (String(controller.id) === activeController) {
         setActiveController(null);
         onRelease?.(String(controller.id));
@@ -56,19 +56,22 @@ export const useVRInteraction = (
         const raw = gamepad.axes[3] ?? gamepad.axes[1];
         
         if (Math.abs(raw) < deadzone) {
-          onMove?.(controllerId, controller.controller.position, 0);
+          onMove?.(controllerId, controller.controller.position, 0, delta, controller.controller.quaternion);
           return;
         }
 
         // Calculate forward direction from controller
         forwardDirection.current.set(0, 0, -1)
           .applyQuaternion(controller.controller.quaternion);
-
-        // Calculate new position using addScaledVector for continuous motion
-        const newPosition = controller.controller.position.clone();
-        newPosition.addScaledVector(forwardDirection.current, raw * moveSpeed * delta);
         
-        onMove?.(controllerId, newPosition, raw * moveSpeed);
+        // Pass the raw*moveSpeed value as pushPull, along with delta and quaternion
+        onMove?.(
+          controllerId, 
+          controller.controller.position, 
+          raw * moveSpeed, 
+          delta,
+          controller.controller.quaternion
+        );
       }
       
       // Handle button presses
