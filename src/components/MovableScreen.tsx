@@ -91,4 +91,3 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
 
   return <group ref={mesh}>{children}</group>;
 };
-
