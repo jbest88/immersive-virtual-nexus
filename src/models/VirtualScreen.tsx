@@ -82,9 +82,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
       setGrabbed(true);
-      // Store the offset between the controller and screen when grabbing
       grabOffsetRef.current = meshRef.current.position.clone().sub(controllerPosition);
-      // Store the controller position for reference
       controllerPosRef.current.copy(controllerPosition);
     }
   };
@@ -92,23 +90,22 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, pushPull: number) => {
     if (meshRef.current && grabbed && grabOffsetRef.current) {
       // Calculate base position from controller movement
-      const basePosition = controllerPosition.clone().add(grabOffsetRef.current);
+      const newPosition = controllerPosition.clone().add(grabOffsetRef.current);
       
-      // Apply push/pull movement along the view direction
-      if (pushPull !== 0) {
+      // Apply continuous push/pull movement if there's input
+      if (Math.abs(pushPull) > 0) {
         const viewDirection = new THREE.Vector3().subVectors(
           meshRef.current.position,
           controllerPosition
         ).normalize();
         
-        // Add the continuous push/pull movement
-        basePosition.add(viewDirection.multiplyScalar(pushPull));
+        newPosition.add(viewDirection.multiplyScalar(pushPull));
       }
 
       // Update position
-      meshRef.current.position.copy(basePosition);
-      setCurrentPosition([basePosition.x, basePosition.y, basePosition.z]);
-      onDrag?.([basePosition.x, basePosition.y, basePosition.z]);
+      meshRef.current.position.copy(newPosition);
+      setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
+      onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
 
       // Make screen face the controller
       const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);

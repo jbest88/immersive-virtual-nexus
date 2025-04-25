@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { useXR, XRController } from '@react-three/xr';
+import { useXR, XRController, useController } from '@react-three/xr';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 
@@ -12,10 +12,10 @@ export const useVRInteraction = (
 ) => {
   const { controllers } = useXR();
   const [activeController, setActiveController] = useState<string | null>(null);
-  const joystickThreshold = 0.1;
-  const pushPullSpeed = 0.05; // Speed multiplier for push/pull
+  const deadzone = 0.15; // Joystick deadzone
+  const moveSpeed = 1.5; // meters per second
   const lastButtonStates = useRef<{[key: string]: {[key: string]: boolean}}>({});
-  const pushPullDirection = useRef<Vector3>(new Vector3());
+  const forwardDirection = useRef<Vector3>(new Vector3());
 
   // Handle grip button events
   useEffect(() => {
@@ -42,8 +42,8 @@ export const useVRInteraction = (
     };
   }, [controllers, activeController, onGrab, onRelease]);
 
-  // Track button presses and joystick movement for each controller
-  useFrame(() => {
+  // Track joystick movement and button presses
+  useFrame((_, delta) => {
     controllers.forEach(controller => {
       const controllerId = String(controller.id);
       
@@ -52,24 +52,21 @@ export const useVRInteraction = (
         const gamepad = controller.inputSource?.gamepad;
         if (gamepad) {
           // Get the Y-axis of right joystick (axes[3]) for push/pull
-          const joystickY = gamepad.axes[3] || 0;
+          const yAxis = gamepad.axes[3] ?? gamepad.axes[1];
           
-          if (Math.abs(joystickY) > joystickThreshold) {
+          if (Math.abs(yAxis) > deadzone) {
             // Calculate push/pull direction based on controller's forward direction
-            pushPullDirection.current.set(0, 0, -1)
-              .applyQuaternion(controller.controller.quaternion)
-              .normalize()
-              .multiplyScalar(joystickY * pushPullSpeed);
+            forwardDirection.current.set(0, 0, -1)
+              .applyQuaternion(controller.controller.quaternion);
+
+            // Calculate new position based on continuous movement
+            const newPosition = controller.controller.position.clone()
+              .add(forwardDirection.current.multiplyScalar(yAxis * moveSpeed * delta));
             
-            // Update position based on continuous joystick input
-            const newPosition = controller.controller.position.clone().add(pushPullDirection.current);
-            onMove?.(controllerId, newPosition, joystickY * pushPullSpeed);
+            onMove?.(controllerId, newPosition, yAxis * moveSpeed);
           } else {
-            // If joystick is neutral, just pass the current position
             onMove?.(controllerId, controller.controller.position, 0);
           }
-        } else {
-          onMove?.(controllerId, controller.controller.position, 0);
         }
       }
       
