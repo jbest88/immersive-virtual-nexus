@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
@@ -92,34 +91,29 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, pushPull: number) => {
     if (meshRef.current && grabbed && grabOffsetRef.current) {
-      // Calculate new position based on controller's physical movement (natural manipulation)
-      const newPosition = controllerPosition.clone().add(grabOffsetRef.current);
+      // Calculate base position from controller movement
+      const basePosition = controllerPosition.clone().add(grabOffsetRef.current);
       
-      // Apply push/pull along the view direction if joystick input received
+      // Apply push/pull movement along the view direction
       if (pushPull !== 0) {
-        // Create a vector pointing from controller to screen
         const viewDirection = new THREE.Vector3().subVectors(
           meshRef.current.position,
           controllerPosition
         ).normalize();
         
-        // Apply push/pull force along that direction
-        newPosition.add(viewDirection.multiplyScalar(pushPull));
+        // Add the continuous push/pull movement
+        basePosition.add(viewDirection.multiplyScalar(pushPull));
       }
 
       // Update position
-      meshRef.current.position.copy(newPosition);
-      setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
-      
-      // Update position in parent if callback provided
-      onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
+      meshRef.current.position.copy(basePosition);
+      setCurrentPosition([basePosition.x, basePosition.y, basePosition.z]);
+      onDrag?.([basePosition.x, basePosition.y, basePosition.z]);
 
-      // Make the screen face the controller (look at controller)
-      if (controllerPosition) {
-        const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
-        direction.y = 0; // Keep the screen vertical by zeroing Y component
-        meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
-      }
+      // Make screen face the controller
+      const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
+      direction.y = 0; // Keep screen vertical
+      meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
     }
   };
 

@@ -15,6 +15,7 @@ export const useVRInteraction = (
   const joystickThreshold = 0.1;
   const pushPullSpeed = 0.05; // Speed multiplier for push/pull
   const lastButtonStates = useRef<{[key: string]: {[key: string]: boolean}}>({});
+  const pushPullDirection = useRef<Vector3>(new Vector3());
 
   // Handle grip button events
   useEffect(() => {
@@ -48,38 +49,43 @@ export const useVRInteraction = (
       
       // Handle controller movement if it's the active controller
       if (activeController === controllerId) {
-        // Pass the controller position for natural movement
         const gamepad = controller.inputSource?.gamepad;
         if (gamepad) {
           // Get the Y-axis of right joystick (axes[3]) for push/pull
           const joystickY = gamepad.axes[3] || 0;
-          const pushPullValue = Math.abs(joystickY) > joystickThreshold ? joystickY * pushPullSpeed : 0;
           
-          // Call onMove with controller position and push/pull value
-          onMove?.(controllerId, controller.controller.position, pushPullValue);
+          if (Math.abs(joystickY) > joystickThreshold) {
+            // Calculate push/pull direction based on controller's forward direction
+            pushPullDirection.current.set(0, 0, -1)
+              .applyQuaternion(controller.controller.quaternion)
+              .normalize()
+              .multiplyScalar(joystickY * pushPullSpeed);
+            
+            // Update position based on continuous joystick input
+            const newPosition = controller.controller.position.clone().add(pushPullDirection.current);
+            onMove?.(controllerId, newPosition, joystickY * pushPullSpeed);
+          } else {
+            // If joystick is neutral, just pass the current position
+            onMove?.(controllerId, controller.controller.position, 0);
+          }
         } else {
-          // If no gamepad, just use controller position with no push/pull
           onMove?.(controllerId, controller.controller.position, 0);
         }
       }
       
-      // Handle button presses (for menu toggle with B button and other interactions)
+      // Handle button presses
       if (controller.inputSource?.gamepad) {
         const gamepad = controller.inputSource.gamepad;
         
-        // Initialize controller state if not exists
         if (!lastButtonStates.current[controllerId]) {
           lastButtonStates.current[controllerId] = {};
         }
         
-        // Check each button for changes
         for (let i = 0; i < gamepad.buttons.length; i++) {
           const isPressed = gamepad.buttons[i].pressed;
           const wasPressed = lastButtonStates.current[controllerId][i] || false;
           
-          // If button state changed from not pressed to pressed (button down)
           if (isPressed && !wasPressed) {
-            // Map button index to name - this varies by controller, but index 1 is typically B/Y
             let buttonName = '';
             switch (i) {
               case 0: buttonName = 'A'; break;
@@ -91,12 +97,9 @@ export const useVRInteraction = (
               default: buttonName = `Button${i}`; break;
             }
             
-            // Trigger the callback with button info
             onButtonPress?.(controllerId, buttonName);
-            console.log(`Button pressed: ${buttonName} on controller ${controllerId}`);
           }
           
-          // Update button state
           lastButtonStates.current[controllerId][i] = isPressed;
         }
       }
