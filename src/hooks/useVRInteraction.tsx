@@ -18,11 +18,12 @@ export const useVRInteraction = (
   useEffect(() => {
     const handleControllerEvent = (controller: XRController, isGrip: boolean) => {
       if (isGrip) {
-        setActiveController(controller.id);
-        onGrab?.(controller.id, controller.controller.position);
-      } else if (controller.id === activeController) {
+        // Make sure controller.id is treated as a string
+        setActiveController(String(controller.id));
+        onGrab?.(String(controller.id), controller.controller.position);
+      } else if (String(controller.id) === activeController) {
         setActiveController(null);
-        onRelease?.(controller.id);
+        onRelease?.(String(controller.id));
       }
     };
 
@@ -42,10 +43,12 @@ export const useVRInteraction = (
   // Handle controller movement
   useEffect(() => {
     if (activeController) {
-      const controller = controllers.find(c => c.id === activeController);
+      // Use String() to ensure consistent comparison with activeController
+      const controller = controllers.find(c => String(c.id) === activeController);
       if (controller) {
         const handleMove = () => {
-          onMove?.(controller.id, controller.controller.position);
+          // Ensure controller.id is treated as a string
+          onMove?.(String(controller.id), controller.controller.position);
         };
 
         controller.controller.addEventListener('move', handleMove);
@@ -58,14 +61,16 @@ export const useVRInteraction = (
   useFrame(() => {
     if (activeController) {
       controllers.forEach(controller => {
-        if (controller.id === activeController && controller.inputSource?.gamepad) {
+        // Ensure consistent string comparison
+        if (String(controller.id) === activeController && controller.inputSource?.gamepad) {
           const gamepad = controller.inputSource.gamepad;
           // Check axes (usually axes[1] is the Y axis of the main joystick)
           if (gamepad.axes && gamepad.axes.length >= 2) {
             const joystickY = gamepad.axes[1];
             // Only trigger if joystick moved beyond threshold
             if (Math.abs(joystickY) > joystickThreshold) {
-              onJoystickMove?.(controller.id, joystickY);
+              // Make sure controller.id is passed as a string
+              onJoystickMove?.(String(controller.id), joystickY);
             }
           }
         }
