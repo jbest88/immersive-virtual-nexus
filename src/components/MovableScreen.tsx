@@ -50,8 +50,7 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
       gripElement.removeEventListener('squeezestart', handleSqueezeStart);
       gripElement.removeEventListener('squeezeend', handleSqueezeEnd);
     };
-  // Explicit dependency array for the controller
-  }, [controller]);
+  }, [controller]); // Explicitly including controller in the dependency array
 
   // Handle controller movement and screen positioning
   useFrame((_, delta) => {
