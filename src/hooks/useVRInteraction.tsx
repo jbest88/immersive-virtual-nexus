@@ -7,8 +7,7 @@ import { Vector3 } from 'three';
 export const useVRInteraction = (
   onGrab?: (controllerId: string, position: Vector3) => void,
   onRelease?: (controllerId: string) => void,
-  onMove?: (controllerId: string, position: Vector3) => void,
-  onJoystickMove?: (controllerId: string, x: number, y: number) => void
+  onMove?: (controllerId: string, position: Vector3, joystickMovement: { x: number, y: number }) => void,
 ) => {
   const { controllers } = useXR();
   const [activeController, setActiveController] = useState<string | null>(null);
@@ -39,24 +38,27 @@ export const useVRInteraction = (
     };
   }, [controllers, activeController, onGrab, onRelease]);
 
-  // Handle controller movement
+  // Handle controller movement and joystick input
   useFrame(() => {
     if (activeController) {
       const controller = controllers.find(c => String(c.id) === activeController);
-      if (controller) {
-        onMove?.(String(controller.id), controller.controller.position);
+      if (controller && controller.inputSource?.gamepad) {
+        const gamepad = controller.inputSource.gamepad;
+        const joystickX = gamepad.axes[2] || 0; // Right joystick X
+        const joystickY = gamepad.axes[3] || 0; // Right joystick Y
         
-        // Handle joystick input
-        if (controller.inputSource?.gamepad) {
-          const gamepad = controller.inputSource.gamepad;
-          if (gamepad.axes && gamepad.axes.length >= 4) {
-            const joystickX = gamepad.axes[2]; // Right joystick X
-            const joystickY = gamepad.axes[3]; // Right joystick Y
-            
-            if (Math.abs(joystickX) > joystickThreshold || Math.abs(joystickY) > joystickThreshold) {
-              onJoystickMove?.(String(controller.id), joystickX, joystickY);
-            }
-          }
+        if (Math.abs(joystickX) > joystickThreshold || Math.abs(joystickY) > joystickThreshold) {
+          onMove?.(
+            String(controller.id), 
+            controller.controller.position,
+            { x: joystickX, y: joystickY }
+          );
+        } else {
+          onMove?.(
+            String(controller.id), 
+            controller.controller.position,
+            { x: 0, y: 0 }
+          );
         }
       }
     }

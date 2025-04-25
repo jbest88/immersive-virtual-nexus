@@ -30,6 +30,7 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const [grabbed, setGrabbed] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<[number, number, number]>(position);
   const [currentSize, setCurrentSize] = useState<{width: number, height: number}>({ width, height });
+  const moveSpeed = 0.1; // Speed multiplier for joystick movement
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
@@ -78,40 +79,39 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
-      const screenPosition = meshRef.current.position.clone();
-      meshRef.current.userData.grabOffset = screenPosition.sub(controllerPosition);
       setGrabbed(true);
+      meshRef.current.userData.grabOffset = meshRef.current.position.clone().sub(controllerPosition);
     }
   };
 
-  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3) => {
+  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, joystickMovement: { x: number, y: number }) => {
     if (meshRef.current && grabbed) {
-      const newPosition = controllerPosition.clone().add(meshRef.current.userData.grabOffset);
+      // Move the screen based on joystick input
+      const newPosition = meshRef.current.position.clone();
+      newPosition.x += joystickMovement.x * moveSpeed;
+      newPosition.z += joystickMovement.y * moveSpeed;
+      
       meshRef.current.position.copy(newPosition);
       setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
       onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
+
+      // Update the screen's rotation to face the controller
+      if (controllerPosition) {
+        const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
+        direction.y = 0; // Keep the screen vertical
+        meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
+      }
     }
   };
 
   const handleRelease = () => {
     if (meshRef.current) {
-      meshRef.current.userData.grabOffset = null;
       setGrabbed(false);
+      meshRef.current.userData.grabOffset = null;
     }
   };
 
-  const handleJoystickMove = (controllerId: string, x: number, y: number) => {
-    if (grabbed) {
-      // Use X axis for width and Y axis for height scaling
-      const scaleSpeed = 0.05;
-      setCurrentSize(prev => ({
-        width: Math.max(4, Math.min(30, prev.width * (1 + x * scaleSpeed))),
-        height: Math.max(3, Math.min(20, prev.height * (1 - y * scaleSpeed)))
-      }));
-    }
-  };
-
-  useVRInteraction(handleGrab, handleRelease, handleMove, handleJoystickMove);
+  useVRInteraction(handleGrab, handleRelease, handleMove);
 
   // Use memoized values for material properties
   const materialProps = useMemo(() => ({
@@ -123,7 +123,6 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
 
   return (
     <group position={currentPosition}>
-      {/* Screen name label */}
       <Text
         position={[0, currentSize.height / 2 + 0.3, 0]}
         fontSize={0.3}
@@ -134,17 +133,20 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
         {name}
       </Text>
       
-      {/* Actual screen */}
       <mesh 
         ref={meshRef}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
         <planeGeometry args={[currentSize.width, currentSize.height]} />
-        <meshBasicMaterial {...materialProps} />
+        <meshBasicMaterial 
+          color={hovered ? "#ffffff" : "#f0f0f0"}
+          opacity={isDragging || grabbed ? 0.7 : (hovered ? 0.95 : 0.9)}
+          transparent={true}
+          map={texture || undefined}
+        />
       </mesh>
       
-      {/* Glow effect around the edges when hovered, grabbed or being moved */}
       {(hovered || isDragging || grabbed) && (
         <mesh position={[0, 0, -0.01]}>
           <planeGeometry args={[currentSize.width + 0.1, currentSize.height + 0.1]} />
@@ -156,19 +158,16 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
         </mesh>
       )}
 
-      {/* Resize indicators when grabbed */}
       {grabbed && (
-        <>
-          <Text
-            position={[0, currentSize.height / 2 + 0.8, 0]}
-            fontSize={0.25}
-            color="#4aff68"
-            anchorX="center"
-            anchorY="bottom"
-          >
-            Push joystick forward/back to resize
-          </Text>
-        </>
+        <Text
+          position={[0, currentSize.height / 2 + 0.8, 0]}
+          fontSize={0.25}
+          color="#4aff68"
+          anchorX="center"
+          anchorY="bottom"
+        >
+          Use joystick to move screen
+        </Text>
       )}
     </group>
   );
