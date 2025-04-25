@@ -21,7 +21,7 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
   const grabOffset = useRef(new THREE.Vector3());
   const pullOffset = useRef(new THREE.Vector3());
   
-  // Handle squeeze start event
+  // Handle squeeze start event with safe dependencies
   const handleSqueezeStart = React.useCallback(() => {
     if (!controller || !mesh.current) return;
 
@@ -36,7 +36,7 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
     setIsGripped(true);
   }, [controller]); // Only depend on controller
 
-  // Handle squeeze end event
+  // Handle squeeze end event - no dependencies needed
   const handleSqueezeEnd = React.useCallback(() => {
     setIsGripped(false);
   }, []); // No dependencies needed
@@ -63,7 +63,7 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
 
   // Handle controller movement and screen positioning
   useFrame((_, delta) => {
-    if (!isGripped || !controller || !mesh.current) return;
+    if (!isGripped || !controller || !mesh.current || !controller.controller) return;
 
     // Handle joystick push/pull
     if (controller.inputSource?.gamepad) {
@@ -88,25 +88,29 @@ export const MovableScreen: React.FC<MovableScreenProps> = ({
 
     // Update position: controllerPos + grabOffset + pullOffset
     const ctrlPos = new THREE.Vector3();
-    controller.controller.getWorldPosition(ctrlPos);
-    
-    const targetPos = ctrlPos.clone()
-      .add(grabOffset.current)
-      .add(pullOffset.current);
-    
-    mesh.current.position.copy(targetPos);
-
-    // Make screen face the controller
-    const direction = new THREE.Vector3().subVectors(
-      controller.controller.position,
-      mesh.current.position
-    );
-    direction.y = 0; // Keep screen vertical
-    mesh.current.lookAt(mesh.current.position.clone().add(direction));
-
-    // Notify position updates
-    if (onPositionUpdate) {
-      onPositionUpdate([targetPos.x, targetPos.y, targetPos.z]);
+    if (controller && controller.controller) {
+      controller.controller.getWorldPosition(ctrlPos);
+      
+      const targetPos = ctrlPos.clone()
+        .add(grabOffset.current)
+        .add(pullOffset.current);
+      
+      mesh.current.position.copy(targetPos);
+  
+      // Make screen face the controller
+      if (controller.controller.position) {
+        const direction = new THREE.Vector3().subVectors(
+          controller.controller.position,
+          mesh.current.position
+        );
+        direction.y = 0; // Keep screen vertical
+        mesh.current.lookAt(mesh.current.position.clone().add(direction));
+      }
+  
+      // Notify position updates
+      if (onPositionUpdate) {
+        onPositionUpdate([targetPos.x, targetPos.y, targetPos.z]);
+      }
     }
   });
 
