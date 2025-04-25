@@ -29,8 +29,10 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const [hovered, setHovered] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [currentPosition, setCurrentPosition] = useState<[number, number, number]>(position);
-  const [currentSize, setCurrentSize] = useState<{width: number, height: number}>({ width, height });
-  const moveSpeed = 0.1; // Speed multiplier for joystick movement
+  const [currentSize] = useState<{width: number, height: number}>({ width, height });
+  const grabOffsetRef = useRef<THREE.Vector3 | null>(null);
+  const initialDistanceRef = useRef<number | null>(null);
+
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const videoTextureRef = useRef<THREE.VideoTexture | null>(null);
@@ -80,34 +82,43 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
   const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3) => {
     if (meshRef.current) {
       setGrabbed(true);
-      meshRef.current.userData.grabOffset = meshRef.current.position.clone().sub(controllerPosition);
+      // Store the offset between the controller and screen when grabbing
+      grabOffsetRef.current = meshRef.current.position.clone().sub(controllerPosition);
+      // Store initial distance for push/pull reference
+      initialDistanceRef.current = meshRef.current.position.distanceTo(controllerPosition);
     }
   };
 
-  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, joystickMovement: { x: number, y: number }) => {
-    if (meshRef.current && grabbed) {
-      // Move the screen based on joystick input
-      const newPosition = meshRef.current.position.clone();
-      newPosition.x += joystickMovement.x * moveSpeed;
-      newPosition.z += joystickMovement.y * moveSpeed;
+  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, pushPull: number) => {
+    if (meshRef.current && grabbed && grabOffsetRef.current && initialDistanceRef.current) {
+      // Calculate new position based on controller movement
+      const newPosition = controllerPosition.clone().add(grabOffsetRef.current);
       
+      // Apply push/pull along the view direction
+      if (pushPull !== 0) {
+        const viewDirection = new THREE.Vector3().subVectors(
+          meshRef.current.position,
+          controllerPosition
+        ).normalize();
+        newPosition.add(viewDirection.multiplyScalar(pushPull));
+      }
+
       meshRef.current.position.copy(newPosition);
       setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
       onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
 
-      // Update the screen's rotation to face the controller
-      if (controllerPosition) {
-        const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
-        direction.y = 0; // Keep the screen vertical
-        meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
-      }
+      // Make the screen face the controller
+      const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
+      direction.y = 0; // Keep the screen vertical
+      meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
     }
   };
 
   const handleRelease = () => {
     if (meshRef.current) {
       setGrabbed(false);
-      meshRef.current.userData.grabOffset = null;
+      grabOffsetRef.current = null;
+      initialDistanceRef.current = null;
     }
   };
 

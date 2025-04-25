@@ -7,11 +7,12 @@ import { Vector3 } from 'three';
 export const useVRInteraction = (
   onGrab?: (controllerId: string, position: Vector3) => void,
   onRelease?: (controllerId: string) => void,
-  onMove?: (controllerId: string, position: Vector3, joystickMovement: { x: number, y: number }) => void,
+  onMove?: (controllerId: string, position: Vector3, pushPull: number) => void,
 ) => {
   const { controllers } = useXR();
   const [activeController, setActiveController] = useState<string | null>(null);
   const joystickThreshold = 0.1;
+  const pushPullSpeed = 0.05; // Speed multiplier for push/pull
 
   // Handle grip button events
   useEffect(() => {
@@ -44,22 +45,14 @@ export const useVRInteraction = (
       const controller = controllers.find(c => String(c.id) === activeController);
       if (controller && controller.inputSource?.gamepad) {
         const gamepad = controller.inputSource.gamepad;
-        const joystickX = gamepad.axes[2] || 0; // Right joystick X
-        const joystickY = gamepad.axes[3] || 0; // Right joystick Y
+        const joystickY = gamepad.axes[3] || 0; // Right joystick Y for push/pull
         
-        if (Math.abs(joystickX) > joystickThreshold || Math.abs(joystickY) > joystickThreshold) {
-          onMove?.(
-            String(controller.id), 
-            controller.controller.position,
-            { x: joystickX, y: joystickY }
-          );
-        } else {
-          onMove?.(
-            String(controller.id), 
-            controller.controller.position,
-            { x: 0, y: 0 }
-          );
-        }
+        // Only pass the push/pull value from joystick Y
+        onMove?.(
+          String(controller.id),
+          controller.controller.position,
+          Math.abs(joystickY) > joystickThreshold ? joystickY * pushPullSpeed : 0
+        );
       }
     }
   });
