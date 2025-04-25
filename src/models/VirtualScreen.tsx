@@ -1,9 +1,8 @@
-
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, useVideoTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import { useVRInteraction } from '../hooks/useVRInteraction';
+import { MovableScreen } from '../components/MovableScreen';
 
 interface VirtualScreenProps {
   position: [number, number, number];
@@ -81,65 +80,10 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
     }
   });
 
-  const handleGrab = (controllerId: string, controllerPosition: THREE.Vector3, controllerQuaternion: THREE.Quaternion) => {
-    if (meshRef.current) {
-      setGrabbed(true);
-      grabOffsetRef.current = meshRef.current.position.clone().sub(controllerPosition);
-      controllerPosRef.current.copy(controllerPosition);
-      controllerQuatRef.current.copy(controllerQuaternion);
-    }
-  };
-
-  const handleMove = (controllerId: string, controllerPosition: THREE.Vector3, pushPull: number, delta: number, controllerQuaternion: THREE.Quaternion) => {
-    if (!meshRef.current || !grabbed) return;
-
-    // Store latest controller position and quaternion
-    controllerPosRef.current.copy(controllerPosition);
-    controllerQuatRef.current.copy(controllerQuaternion);
-
-    // Apply continuous movement based on pushPull value if non-zero
-    if (Math.abs(pushPull) > 0) {
-      // Build the controller's forward vector
-      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(controllerQuaternion);
-
-      // Apply continuous movement with pushPull and delta
-      meshRef.current.position.addScaledVector(forward, pushPull * delta);
-      
-      // Update position state after movement
-      const newPosition = meshRef.current.position.clone();
-      setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);
-      onDrag?.([newPosition.x, newPosition.y, newPosition.z]);
-    }
-
-    // Make screen face the controller
-    if (meshRef.current) {
-      const direction = new THREE.Vector3().subVectors(controllerPosition, meshRef.current.position);
-      direction.y = 0; // Keep screen vertical
-      meshRef.current.lookAt(meshRef.current.position.clone().add(direction));
-    }
-  };
-
-  const handleRelease = () => {
-    if (meshRef.current) {
-      setGrabbed(false);
-      grabOffsetRef.current = null;
-    }
-  };
-
-  useVRInteraction(handleGrab, handleRelease, handleMove);
-
-  // Use memoized values for material properties
-  const materialProps = useMemo(() => ({
-    color: hovered ? "#ffffff" : "#f0f0f0",
-    opacity: isDragging || grabbed ? 0.7 : (hovered ? 0.95 : 0.9),
-    transparent: true,
-    map: texture || undefined
-  }), [hovered, isDragging, grabbed, texture]);
-
   return (
-    <group position={currentPosition}>
+    <MovableScreen onPositionUpdate={onDrag}>
       <Text
-        position={[0, currentSize.height / 2 + 0.3, 0]}
+        position={[0, height / 2 + 0.3, 0]}
         fontSize={0.3}
         color="#ffffff"
         anchorX="center"
@@ -148,43 +92,27 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
         {name}
       </Text>
       
-      <mesh 
-        ref={meshRef}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-      >
-        <planeGeometry args={[currentSize.width, currentSize.height]} />
+      <mesh>
+        <planeGeometry args={[width, height]} />
         <meshBasicMaterial 
-          color={hovered ? "#ffffff" : "#f0f0f0"}
-          opacity={isDragging || grabbed ? 0.7 : (hovered ? 0.95 : 0.9)}
+          color={isDragging ? "#ffffff" : "#f0f0f0"}
+          opacity={isDragging ? 0.7 : 0.9}
           transparent={true}
           map={texture || undefined}
         />
       </mesh>
       
-      {(hovered || isDragging || grabbed) && (
+      {isDragging && (
         <mesh position={[0, 0, -0.01]}>
-          <planeGeometry args={[currentSize.width + 0.1, currentSize.height + 0.1]} />
+          <planeGeometry args={[width + 0.1, height + 0.1]} />
           <meshBasicMaterial 
-            color={grabbed ? "#4aff68" : (isDragging ? "#4aff68" : "#4a68ff")}
+            color="#4aff68"
             opacity={0.4} 
             transparent={true} 
           />
         </mesh>
       )}
-
-      {grabbed && (
-        <Text
-          position={[0, currentSize.height / 2 + 0.8, 0]}
-          fontSize={0.25}
-          color="#4aff68"
-          anchorX="center"
-          anchorY="bottom"
-        >
-          Use joystick to push/pull screen
-        </Text>
-      )}
-    </group>
+    </MovableScreen>
   );
 };
 
