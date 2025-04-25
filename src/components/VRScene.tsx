@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Sky, Environment, OrbitControls } from '@react-three/drei';
+import { Sky, Environment, OrbitControls, Text } from '@react-three/drei';
 import { VRButton, XR, Controllers, Hands, useXR } from '@react-three/xr';
 import * as THREE from 'three';
 import { Perf } from 'r3f-perf';
