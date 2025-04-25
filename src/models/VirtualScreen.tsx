@@ -92,16 +92,6 @@ const VirtualScreen: React.FC<VirtualScreenProps> = ({
       // Calculate base position from controller movement
       const newPosition = controllerPosition.clone().add(grabOffsetRef.current);
       
-      // Apply continuous push/pull movement if there's input
-      if (Math.abs(pushPull) > 0) {
-        const viewDirection = new THREE.Vector3().subVectors(
-          meshRef.current.position,
-          controllerPosition
-        ).normalize();
-        
-        newPosition.add(viewDirection.multiplyScalar(pushPull));
-      }
-
       // Update position
       meshRef.current.position.copy(newPosition);
       setCurrentPosition([newPosition.x, newPosition.y, newPosition.z]);

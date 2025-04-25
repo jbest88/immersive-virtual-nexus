@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { useXR, XRController, useController } from '@react-three/xr';
+import { useXR, XRController } from '@react-three/xr';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 
@@ -50,24 +50,25 @@ export const useVRInteraction = (
       // Handle controller movement if it's the active controller
       if (activeController === controllerId) {
         const gamepad = controller.inputSource?.gamepad;
-        if (gamepad) {
-          // Get the Y-axis of right joystick (axes[3]) for push/pull
-          const yAxis = gamepad.axes[3] ?? gamepad.axes[1];
-          
-          if (Math.abs(yAxis) > deadzone) {
-            // Calculate push/pull direction based on controller's forward direction
-            forwardDirection.current.set(0, 0, -1)
-              .applyQuaternion(controller.controller.quaternion);
+        if (!gamepad || gamepad.axes.length < 2) return;
 
-            // Calculate new position based on continuous movement
-            const newPosition = controller.controller.position.clone()
-              .add(forwardDirection.current.multiplyScalar(yAxis * moveSpeed * delta));
-            
-            onMove?.(controllerId, newPosition, yAxis * moveSpeed);
-          } else {
-            onMove?.(controllerId, controller.controller.position, 0);
-          }
+        // Get Y-axis value (using axes[3] with fallback to axes[1])
+        const raw = gamepad.axes[3] ?? gamepad.axes[1];
+        
+        if (Math.abs(raw) < deadzone) {
+          onMove?.(controllerId, controller.controller.position, 0);
+          return;
         }
+
+        // Calculate forward direction from controller
+        forwardDirection.current.set(0, 0, -1)
+          .applyQuaternion(controller.controller.quaternion);
+
+        // Calculate new position using addScaledVector for continuous motion
+        const newPosition = controller.controller.position.clone();
+        newPosition.addScaledVector(forwardDirection.current, raw * moveSpeed * delta);
+        
+        onMove?.(controllerId, newPosition, raw * moveSpeed);
       }
       
       // Handle button presses
